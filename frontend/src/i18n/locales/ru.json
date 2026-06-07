@@ -1,0 +1,68 @@
+{
+  "greeting": "Добро пожаловать в приключение знаний!",
+  "appName": "Академия Хашимжон",
+  "navbar": {
+    "islands": "Острова",
+    "subjects": "Предметы",
+    "leaderboard": "Рейтинг",
+    "rewards": "Награды"
+  },
+  "hero": {
+    "badge": "Новое приключение началось",
+    "title": "Академия Хашимжон",
+    "description": "Путешествуй по волшебным островам знаний. Новые игры, награды и друзья ждут тебя.",
+    "startButton": "Начать приключение",
+    "mapButton": "Посмотреть карту",
+    "hashimjonGreeting": "Привет! Я Хашимжон"
+  },
+  "islands": {
+    "quvonch": {
+      "name": "Остров Радости",
+      "grades": "1-4 классы",
+      "description": "Остров первых знаний и базовых навыков"
+    },
+    "kashfiyot": {
+      "name": "Остров Открытий",
+      "grades": "5-8 классы",
+      "description": "Приключения и открытия в новых предметах"
+    },
+    "kelajak": {
+      "name": "Остров Будущего",
+      "grades": "9-11 классы",
+      "description": "Передовые знания и будущие профессии"
+    }
+  },
+  "auth": {
+    "login": "Вход",
+    "register": "Регистрация",
+    "email": "Email",
+    "password": "Пароль",
+    "confirmPassword": "Подтвердите пароль",
+    "firstName": "Имя",
+    "lastName": "Фамилия",
+    "phone": "Телефон",
+    "grade": "Класс",
+    "parentPhone": "Телефон родителей",
+    "role": "Роль",
+    "student": "Ученик",
+    "teacher": "Учитель",
+    "forgotPassword": "Забыли пароль?",
+    "rememberMe": "Запомнить меня",
+    "loginButton": "Войти",
+    "registerButton": "Зарегистрироваться"
+  },
+  "dashboard": {
+    "welcome": "Добро пожаловать",
+    "myIslands": "Мои острова",
+    "myLessons": "Мои уроки",
+    "games": "Игры",
+    "rewards": "Награды",
+    "leaderboard": "Рейтинг",
+    "chat": "Чат",
+    "settings": "Настройки",
+    "xp": "Опыт",
+    "streak": "Серия",
+    "rank": "Уровень",
+    "dailyChallenge": "Ежедневное задание"
+  }
+}

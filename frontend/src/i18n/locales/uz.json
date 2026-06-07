@@ -1,0 +1,68 @@
+{
+  "greeting": "Bilim sarguzashtiga xush kelibsiz!",
+  "appName": "Hashimjon Akademiyasi",
+  "navbar": {
+    "islands": "Orollar",
+    "subjects": "Fanlar",
+    "leaderboard": "Reyting",
+    "rewards": "Mukofotlar"
+  },
+  "hero": {
+    "badge": "Yangi sarguzasht boshlandi",
+    "title": "Hashimjon Akademiyasi",
+    "description": "Sehrli bilim orollarida sayohat qil. Yangi o'yinlar, mukofotlar va do'stlar seni kutmoqda.",
+    "startButton": "Sarguzashtni boshlash",
+    "mapButton": "Xaritani ko'rish",
+    "hashimjonGreeting": "Salom! Men Hashimjonman"
+  },
+  "islands": {
+    "quvonch": {
+      "name": "Quvonch Oroli",
+      "grades": "1-4 sinflar",
+      "description": "Ilk bilimlar va asosiy ko'nikmalar oroli"
+    },
+    "kashfiyot": {
+      "name": "Kashfiyot Oroli",
+      "grades": "5-8 sinflar",
+      "description": "Yangi fanlarga sarguzasht va kashfiyot"
+    },
+    "kelajak": {
+      "name": "Kelajak Oroli",
+      "grades": "9-11 sinflar",
+      "description": "Ilg'or bilimlar va kelajak kasblar"
+    }
+  },
+  "auth": {
+    "login": "Kirish",
+    "register": "Ro'yxatdan o'tish",
+    "email": "Email",
+    "password": "Parol",
+    "confirmPassword": "Parolni tasdiqlang",
+    "firstName": "Ism",
+    "lastName": "Familiya",
+    "phone": "Telefon",
+    "grade": "Sinf",
+    "parentPhone": "Ota-ona telefoni",
+    "role": "Rol",
+    "student": "O'quvchi",
+    "teacher": "O'qituvchi",
+    "forgotPassword": "Parolni unutdingizmi?",
+    "rememberMe": "Meni eslab qol",
+    "loginButton": "Kirish",
+    "registerButton": "Ro'yxatdan o'tish"
+  },
+  "dashboard": {
+    "welcome": "Xush kelibsiz",
+    "myIslands": "Orollarim",
+    "myLessons": "Darslarim",
+    "games": "O'yinlar",
+    "rewards": "Mukofotlar",
+    "leaderboard": "Reyting",
+    "chat": "Chat",
+    "settings": "Sozlamalar",
+    "xp": "Tajriba",
+    "streak": "Ketma-ketlik",
+    "rank": "Daraja",
+    "dailyChallenge": "Kunlik vazifa"
+  }
+}

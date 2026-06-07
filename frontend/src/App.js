@@ -1,56 +1,71 @@
-import { useEffect } from "react";
-import "@/App.css";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import axios from "axios";
-import { HOME } from "@/constants/testIds";
-
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
-
-const Home = () => {
-  const helloWorldApi = async () => {
-    try {
-      const response = await axios.get(`${API}/`);
-      console.log(response.data.message);
-    } catch (e) {
-      console.error(e, `errored out requesting / api`);
-    }
-  };
-
-  useEffect(() => {
-    helloWorldApi();
-  }, []);
-
-  return (
-    <div>
-      <header className="App-header">
-        <a
-          data-testid={HOME.emergentLink}
-          className="App-link"
-          href="https://emergent.sh"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <img src="https://avatars.githubusercontent.com/in/1201222?s=120&u=2686cf91179bbafbc7a71bfbc43004cf9ae1acea&v=4" />
-        </a>
-        <p className="mt-5">Building something incredible ~!</p>
-      </header>
-    </div>
-  );
-};
+import React from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { ThemeProvider } from '@/contexts/ThemeContext';
+import ProtectedRoute from '@/components/ProtectedRoute';
+import DashboardLayout from '@/layouts/DashboardLayout';
+import LandingPage from '@/pages/LandingPage';
+import AuthPage from '@/pages/AuthPage';
+import StudentDashboard from '@/pages/StudentDashboard';
+import TeacherDashboard from '@/pages/TeacherDashboard';
+import AdminDashboard from '@/pages/AdminDashboard';
+import '@/App.css';
 
 function App() {
   return (
-    <div className="App">
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Home />}>
-            <Route index element={<Home />} />
-          </Route>
-        </Routes>
-      </BrowserRouter>
-    </div>
+    <ThemeProvider>
+      <AuthProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/auth" element={<AuthPage />} />
+            
+            <Route
+              path="/dashboard"
+              element={
+                <ProtectedRoute>
+                  <DashboardLayout />
+                </ProtectedRoute>
+              }
+            >
+              <Route
+                index
+                element={
+                  <ProtectedRoute>
+                    <DashboardContent />
+                  </ProtectedRoute>
+                }
+              />
+              <Route path="islands" element={<div className="p-6">Islands page coming soon...</div>} />
+              <Route path="lessons" element={<div className="p-6">Lessons page coming soon...</div>} />
+              <Route path="games" element={<div className="p-6">Games page coming soon...</div>} />
+              <Route path="rewards" element={<div className="p-6">Rewards page coming soon...</div>} />
+              <Route path="leaderboard" element={<div className="p-6">Leaderboard page coming soon...</div>} />
+              <Route path="chat" element={<div className="p-6">Chat page coming soon...</div>} />
+              <Route path="settings" element={<div className="p-6">Settings page coming soon...</div>} />
+              <Route path="students" element={<div className="p-6">Students page coming soon...</div>} />
+              <Route path="analytics" element={<div className="p-6">Analytics page coming soon...</div>} />
+              <Route path="users" element={<div className="p-6">Users page coming soon...</div>} />
+            </Route>
+            
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </BrowserRouter>
+      </AuthProvider>
+    </ThemeProvider>
   );
+}
+
+function DashboardContent() {
+  const { user: currentUser } = useAuth();
+
+  if (currentUser?.role === 'admin') {
+    return <AdminDashboard />;
+  } else if (currentUser?.role === 'teacher') {
+    return <TeacherDashboard />;
+  } else {
+    return <StudentDashboard />;
+  }
 }
 
 export default App;
