@@ -4,7 +4,7 @@ from pathlib import Path
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
-from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, Header, Query, File, UploadFile, Depends
+from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, Header, Query, File, UploadFile, Depends, WebSocket, WebSocketDisconnect
 from fastapi.responses import Response as FastAPIResponse
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -507,7 +507,7 @@ async def register(req: RegisterRequest, response: Response):
         "phone": req.phone,
         "grade": req.grade,
         "parentPhone": req.parentPhone,
-        "role": req.role if req.role in ["student", "teacher"] else "student",
+        "role": req.role if req.role in ["student", "teacher", "parent"] else "student",
         "avatar": req.avatar,
         "xp": 0,
         "level": 1,
@@ -1212,6 +1212,266 @@ async def ai_homework_helper(req: AIHomeworkRequest, current_user: dict = Depend
         logging.error(f"AI Homework error: {e}")
         raise HTTPException(status_code=500, detail=f"AI xatolik: {str(e)}")
 
+# ============ DAILY CHALLENGES ============
+@api_router.get("/challenges/daily")
+async def get_daily_challenges(current_user: dict = Depends(get_current_user)):
+    today = datetime.now(timezone.utc).date().isoformat()
+    challenges = await db.daily_challenges.find({"date": today}, {"_id": 0}).to_list(10)
+    
+    if not challenges:
+        challenges = [
+            {"id": str(uuid.uuid4()), "date": today, "title": "3 ta darsni tugatish",
+             "description": "Bugun 3 ta yangi darsni tugatib XP yutib oling",
+             "type": "lessons", "target": 3, "xpReward": 100, "icon": "📚"},
+            {"id": str(uuid.uuid4()), "date": today, "title": "AI bilan suhbat",
+             "description": "AI o'qituvchi bilan kamida 5 ta savol bo'yicha suhbatlashing",
+             "type": "ai_chat", "target": 5, "xpReward": 50, "icon": "🤖"},
+            {"id": str(uuid.uuid4()), "date": today, "title": "Test yechish",
+             "description": "Bitta testni 70%+ natija bilan yeching",
+             "type": "quiz", "target": 1, "xpReward": 75, "icon": "✅"}
+        ]
+        await db.daily_challenges.insert_many(challenges)
+    
+    user_progress_list = await db.user_challenges.find(
+        {"userId": current_user["id"], "date": today},
+        {"_id": 0}
+    ).to_list(100)
+    progress_map = {p["challengeId"]: p for p in user_progress_list}
+    
+    for ch in challenges:
+        up = progress_map.get(ch["id"], {})
+        ch["progress"] = up.get("progress", 0)
+        ch["completed"] = up.get("completed", False)
+    
+    return challenges
+
+class CompleteChallengeRequest(BaseModel):
+    challengeId: str
+
+@api_router.post("/challenges/complete")
+async def complete_challenge(req: CompleteChallengeRequest, current_user: dict = Depends(get_current_user)):
+    challenge = await db.daily_challenges.find_one({"id": req.challengeId})
+    if not challenge:
+        raise HTTPException(status_code=404, detail="Challenge not found")
+    
+    existing = await db.user_challenges.find_one({
+        "userId": current_user["id"],
+        "challengeId": req.challengeId
+    })
+    
+    if existing and existing.get("completed"):
+        return {"message": "Already completed", "xpAwarded": False}
+    
+    data = {
+        "userId": current_user["id"],
+        "challengeId": req.challengeId,
+        "date": challenge["date"],
+        "progress": challenge["target"],
+        "completed": True,
+        "completedAt": datetime.now(timezone.utc).isoformat()
+    }
+    
+    if existing:
+        await db.user_challenges.update_one({"_id": existing["_id"]}, {"$set": data})
+    else:
+        data["id"] = str(uuid.uuid4())
+        await db.user_challenges.insert_one(data)
+    
+    await db.users.update_one(
+        {"_id": ObjectId(current_user["id"])},
+        {"$inc": {"xp": challenge["xpReward"]}}
+    )
+    
+    return {"message": "Challenge completed", "xpAwarded": True, "xpAdded": challenge["xpReward"]}
+
+# ============ AVATARS ============
+AVAILABLE_AVATARS = [
+    {"id": "default", "name": "Standart", "emoji": "👤", "xpRequired": 0, "rarity": "common"},
+    {"id": "boy", "name": "Bolakay", "emoji": "👦", "xpRequired": 100, "rarity": "common"},
+    {"id": "girl", "name": "Qizaloq", "emoji": "👧", "xpRequired": 100, "rarity": "common"},
+    {"id": "wizard", "name": "Sehrgar", "emoji": "🧙", "xpRequired": 500, "rarity": "rare"},
+    {"id": "scientist", "name": "Olim", "emoji": "🧑‍🔬", "xpRequired": 800, "rarity": "rare"},
+    {"id": "astronaut", "name": "Kosmonavt", "emoji": "🧑‍🚀", "xpRequired": 1500, "rarity": "epic"},
+    {"id": "robot", "name": "Robot", "emoji": "🤖", "xpRequired": 2000, "rarity": "epic"},
+    {"id": "ninja", "name": "Ninja", "emoji": "🥷", "xpRequired": 3000, "rarity": "legendary"},
+    {"id": "superhero", "name": "Qahramon", "emoji": "🦸", "xpRequired": 5000, "rarity": "legendary"}
+]
+
+@api_router.get("/avatars")
+async def list_avatars():
+    return AVAILABLE_AVATARS
+
+class PurchaseAvatarRequest(BaseModel):
+    avatarId: str
+
+@api_router.post("/avatars/purchase")
+async def purchase_avatar(req: PurchaseAvatarRequest, current_user: dict = Depends(get_current_user)):
+    avatar = next((a for a in AVAILABLE_AVATARS if a["id"] == req.avatarId), None)
+    if not avatar:
+        raise HTTPException(status_code=404, detail="Avatar not found")
+    
+    user_xp = current_user.get("xp", 0)
+    if user_xp < avatar["xpRequired"]:
+        raise HTTPException(status_code=400, detail=f"Yetarli XP yo'q. Kerakli: {avatar['xpRequired']}, sizda: {user_xp}")
+    
+    await db.users.update_one(
+        {"_id": ObjectId(current_user["id"])},
+        {"$set": {"avatar": req.avatarId}}
+    )
+    
+    return {"message": "Avatar tanlandi", "avatar": req.avatarId}
+
+# ============ CERTIFICATES PDF ============
+@api_router.get("/certificates/{lesson_id}")
+async def generate_certificate(lesson_id: str, current_user: dict = Depends(get_current_user)):
+    from reportlab.lib.pagesizes import landscape, A4
+    from reportlab.pdfgen import canvas as pdf_canvas
+    from reportlab.lib import colors as rl_colors
+    from io import BytesIO
+    
+    progress = await db.user_progress.find_one({
+        "userId": current_user["id"],
+        "lessonId": lesson_id,
+        "completed": True
+    })
+    if not progress:
+        raise HTTPException(status_code=400, detail="Dars hali tugatilmagan")
+    
+    lesson = await db.lessons.find_one({"id": lesson_id})
+    if not lesson:
+        raise HTTPException(status_code=404, detail="Lesson not found")
+    
+    buffer = BytesIO()
+    pdf = pdf_canvas.Canvas(buffer, pagesize=landscape(A4))
+    width, height = landscape(A4)
+    
+    pdf.setFillColor(rl_colors.HexColor("#F5F0FF"))
+    pdf.rect(0, 0, width, height, fill=1, stroke=0)
+    
+    pdf.setStrokeColor(rl_colors.HexColor("#9B59F5"))
+    pdf.setLineWidth(8)
+    pdf.rect(20, 20, width-40, height-40)
+    
+    pdf.setStrokeColor(rl_colors.HexColor("#E879A8"))
+    pdf.setLineWidth(2)
+    pdf.rect(40, 40, width-80, height-80)
+    
+    pdf.setFillColor(rl_colors.HexColor("#9B59F5"))
+    pdf.setFont("Helvetica-Bold", 48)
+    pdf.drawCentredString(width/2, height-120, "CERTIFICATE")
+    
+    pdf.setFillColor(rl_colors.HexColor("#5B8DEF"))
+    pdf.setFont("Helvetica-Bold", 24)
+    pdf.drawCentredString(width/2, height-160, "Hashimjon Akademiyasi")
+    
+    pdf.setFillColor(rl_colors.HexColor("#4B4554"))
+    pdf.setFont("Helvetica", 18)
+    pdf.drawCentredString(width/2, height-220, "Awarded to:")
+    
+    pdf.setFillColor(rl_colors.HexColor("#E879A8"))
+    pdf.setFont("Helvetica-Bold", 36)
+    full_name = f"{current_user.get('firstName', '')} {current_user.get('lastName', '')}"
+    pdf.drawCentredString(width/2, height-270, full_name)
+    
+    pdf.setFillColor(rl_colors.HexColor("#4B4554"))
+    pdf.setFont("Helvetica", 16)
+    lesson_title = lesson.get('titleUz') or lesson.get('title', '')
+    pdf.drawCentredString(width/2, height-310, f'for completing "{lesson_title}"')
+    
+    pdf.setFont("Helvetica", 14)
+    pdf.drawCentredString(width/2, height-360, f"Date: {datetime.now(timezone.utc).strftime('%d.%m.%Y')}")
+    
+    pdf.setFillColor(rl_colors.HexColor("#22C55E"))
+    pdf.setFont("Helvetica-Bold", 20)
+    pdf.drawCentredString(width/2, height-410, f"+{lesson.get('xpReward', 0)} XP earned")
+    
+    pdf.setStrokeColor(rl_colors.HexColor("#9B59F5"))
+    pdf.line(width/2 - 100, 90, width/2 + 100, 90)
+    pdf.setFillColor(rl_colors.HexColor("#4B4554"))
+    pdf.setFont("Helvetica", 12)
+    pdf.drawCentredString(width/2, 75, "Hashimjon Akademiyasi")
+    
+    pdf.showPage()
+    pdf.save()
+    
+    pdf_bytes = buffer.getvalue()
+    buffer.close()
+    
+    return FastAPIResponse(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": 'inline; filename="certificate.pdf"'}
+    )
+
+# ============ STREAMING AI ============
+from fastapi.responses import StreamingResponse
+import json as json_lib
+
+@api_router.post("/ai/tutor-stream")
+async def ai_tutor_stream(req: AITutorRequest, current_user: dict = Depends(get_current_user)):
+    session_id = req.sessionId or str(uuid.uuid4())
+    
+    system_msg = (
+        "Sen Hashimjon - o'zbek bolalar uchun do'st va aqlli o'qituvchisan. "
+        "Tushuntirishlaringni juda sodda, qiziqarli va do'stona qilib bering. "
+        "Misollar keltirib tushuntiring. O'zbek tilida javob bering."
+    )
+    
+    await db.ai_chat_history.insert_one({
+        "id": str(uuid.uuid4()),
+        "userId": current_user["id"],
+        "sessionId": session_id,
+        "role": "user",
+        "content": req.message,
+        "createdAt": datetime.now(timezone.utc).isoformat()
+    })
+    
+    async def event_generator():
+        try:
+            history = await db.ai_chat_history.find(
+                {"userId": current_user["id"], "sessionId": session_id},
+                {"_id": 0}
+            ).sort("createdAt", 1).limit(20).to_list(20)
+            
+            messages = [{"role": "system", "content": system_msg}]
+            for msg in history[-10:]:
+                messages.append({"role": msg["role"], "content": msg["content"]})
+            
+            yield f"data: {json_lib.dumps({'sessionId': session_id, 'type': 'start'})}\n\n"
+            
+            stream = await kimi_client.chat.completions.create(
+                model=KIMI_MODEL,
+                messages=messages,
+                temperature=1,
+                stream=True
+            )
+            
+            full_text = ""
+            async for chunk in stream:
+                delta = chunk.choices[0].delta.content if chunk.choices else None
+                if delta:
+                    full_text += delta
+                    yield f"data: {json_lib.dumps({'type': 'token', 'content': delta})}\n\n"
+            
+            await db.ai_chat_history.insert_one({
+                "id": str(uuid.uuid4()),
+                "userId": current_user["id"],
+                "sessionId": session_id,
+                "role": "assistant",
+                "content": full_text,
+                "createdAt": datetime.now(timezone.utc).isoformat()
+            })
+            
+            yield f"data: {json_lib.dumps({'type': 'done'})}\n\n"
+        except Exception as e:
+            yield f"data: {json_lib.dumps({'type': 'error', 'message': str(e)})}\n\n"
+    
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no", "Connection": "keep-alive"}
+    )
+
 # ============ ADMIN ENDPOINTS ============
 @api_router.get("/admin/users")
 async def admin_list_users(current_user: dict = Depends(get_current_user)):
@@ -1235,6 +1495,86 @@ async def admin_delete_user(user_id: str, current_user: dict = Depends(get_curre
 
 # Include router
 app.include_router(api_router)
+
+# ============ WEBSOCKET CHAT ============
+class ConnectionManager:
+    def __init__(self):
+        self.active: Dict[str, List[WebSocket]] = {}
+    
+    async def connect(self, ws: WebSocket, room_id: str):
+        await ws.accept()
+        if room_id not in self.active:
+            self.active[room_id] = []
+        self.active[room_id].append(ws)
+    
+    def disconnect(self, ws: WebSocket, room_id: str):
+        if room_id in self.active:
+            try:
+                self.active[room_id].remove(ws)
+            except ValueError:
+                pass
+            if not self.active[room_id]:
+                del self.active[room_id]
+    
+    async def broadcast(self, room_id: str, message: dict):
+        if room_id in self.active:
+            for connection in list(self.active[room_id]):
+                try:
+                    await connection.send_json(message)
+                except Exception:
+                    pass
+
+manager = ConnectionManager()
+
+@app.websocket("/api/ws/chat/{room_id}")
+async def websocket_chat(websocket: WebSocket, room_id: str, token: str = Query(None)):
+    # Verify token
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        user_id = payload["sub"]
+        user = await db.users.find_one({"_id": ObjectId(user_id)})
+        if not user:
+            await websocket.close(code=1008)
+            return
+    except Exception:
+        await websocket.close(code=1008)
+        return
+    
+    user_name = f"{user.get('firstName', '')} {user.get('lastName', '')}"
+    await manager.connect(websocket, room_id)
+    
+    try:
+        # Send recent history
+        history = await db.chat_messages.find({"roomId": room_id}, {"_id": 0}).sort("createdAt", -1).limit(50).to_list(50)
+        for msg in reversed(history):
+            await websocket.send_json({"type": "history", **msg})
+        
+        # Notify others
+        await manager.broadcast(room_id, {"type": "join", "user": user_name})
+        
+        while True:
+            data = await websocket.receive_json()
+            content = data.get("content", "").strip()
+            if not content:
+                continue
+            
+            message = {
+                "id": str(uuid.uuid4()),
+                "roomId": room_id,
+                "userId": user_id,
+                "userName": user_name,
+                "content": content,
+                "createdAt": datetime.now(timezone.utc).isoformat()
+            }
+            await db.chat_messages.insert_one(message.copy())
+            message.pop("_id", None)
+            await manager.broadcast(room_id, {"type": "message", **message})
+    except WebSocketDisconnect:
+        manager.disconnect(websocket, room_id)
+        await manager.broadcast(room_id, {"type": "leave", "user": user_name})
+    except Exception as e:
+        logging.error(f"WS error: {e}")
+        manager.disconnect(websocket, room_id)
 
 # CORS - Allow frontend + localhost for dev
 cors_origins = [

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { motion } from 'framer-motion';
-import { Island, ArrowRight } from '@phosphor-icons/react';
+import { MagicalIsland, MagicalSkyBackground } from '@/components/MagicalIsland';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -26,49 +26,39 @@ const IslandsPage = () => {
   }
 
   return (
-    <div className="p-6" data-testid="islands-page">
-      <h1 className="font-heading font-black text-3xl sm:text-4xl text-primaryPurple dark:text-primaryPink mb-2 flex items-center gap-3">
-        <Island weight="fill" size={40} />
-        Bilim Orollari
-      </h1>
-      <p className="font-body text-neutralTextLight dark:text-neutralTextDark mb-8">
-        Sehrli bilim orollarini kashf qiling
-      </p>
+    <div className="relative min-h-screen overflow-hidden" data-testid="islands-page">
+      <MagicalSkyBackground variant="day" />
+      
+      <div className="relative z-10 p-6 sm:p-10">
+        <motion.div
+          initial={{ opacity: 0, y: -30 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-12 text-center"
+        >
+          <div className="inline-flex items-center gap-2 mb-4 px-4 py-2 rounded-full bg-white/90 backdrop-blur border-2 border-primaryPurple shadow-lg">
+            <span className="text-xl">🗺</span>
+            <span className="font-body font-bold text-primaryPurple">Bilim Xaritasi</span>
+          </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {islands.map((island, idx) => (
-          <motion.div
-            key={island.id}
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: idx * 0.1 }}
-            onClick={() => navigate(`/dashboard/islands/${island.id}`)}
-            className="bg-white dark:bg-backgroundDark rounded-3xl overflow-hidden border-2 cursor-pointer hover:scale-105 transition-transform"
-            style={{ borderColor: island.color }}
-            data-testid={`island-${island.id}`}
-          >
-            <div className="h-48 relative overflow-hidden" style={{ backgroundColor: island.color + '30' }}>
-              <img src={island.imageUrl} alt={island.nameUz} className="w-full h-full object-cover" />
-            </div>
-            <div className="p-6">
-              <h3 className="font-heading font-bold text-xl mb-2 text-neutralTextLight dark:text-white">
-                {island.nameUz}
-              </h3>
-              <p className="font-body text-sm font-bold mb-3" style={{ color: island.color }}>
-                {island.gradeMin}-{island.gradeMax} sinflar
-              </p>
-              <p className="font-body text-sm text-neutralTextLight dark:text-neutralTextDark mb-4">
-                {island.descriptionUz}
-              </p>
-              <button
-                className="flex items-center gap-2 font-body font-bold text-primaryPurple hover:text-primaryPink transition-colors"
-                data-testid={`open-island-${island.id}`}
-              >
-                Kirish <ArrowRight weight="bold" size={20} />
-              </button>
-            </div>
-          </motion.div>
-        ))}
+          <h1 className="font-heading font-black text-4xl sm:text-5xl lg:text-6xl mb-4 bg-gradient-to-r from-primaryPink via-primaryPurple to-primaryBlue bg-clip-text text-transparent">
+            Sehrli Bilim Orollari
+          </h1>
+          <p className="font-body text-base sm:text-lg text-neutralTextLight dark:text-white max-w-2xl mx-auto">
+            O'zingizga mos bilim dunyosini tanlang va sarguzashtni boshlang
+          </p>
+        </motion.div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12 md:gap-8 pt-16 max-w-7xl mx-auto">
+          {islands.map((island, idx) => (
+            <MagicalIsland
+              key={island.id}
+              island={island}
+              index={idx}
+              onClick={() => navigate(`/dashboard/islands/${island.id}`)}
+              showHashimjon={true}
+            />
+          ))}
+        </div>
       </div>
     </div>
   );

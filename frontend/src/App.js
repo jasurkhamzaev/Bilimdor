@@ -9,6 +9,7 @@ import AuthPage from '@/pages/AuthPage';
 import StudentDashboard from '@/pages/StudentDashboard';
 import TeacherDashboard from '@/pages/TeacherDashboard';
 import AdminDashboard from '@/pages/AdminDashboard';
+import ParentDashboard from '@/pages/ParentDashboard';
 import IslandsPage from '@/pages/IslandsPage';
 import IslandDetailPage from '@/pages/IslandDetailPage';
 import LessonViewerPage from '@/pages/LessonViewerPage';
@@ -16,12 +17,16 @@ import LeaderboardPage from '@/pages/LeaderboardPage';
 import RewardsPage from '@/pages/RewardsPage';
 import TeacherLessonsCMS from '@/pages/TeacherLessonsCMS';
 import AdminUsersCMS from '@/pages/AdminUsersCMS';
+import AvatarStorePage from '@/pages/AvatarStorePage';
+import ChallengesPage from '@/pages/ChallengesPage';
+import ChatPage from '@/pages/ChatPage';
 import '@/App.css';
 
 function DashboardContent() {
   const { user } = useAuth();
   if (user?.role === 'admin') return <AdminDashboard />;
   if (user?.role === 'teacher') return <TeacherDashboard />;
+  if (user?.role === 'parent') return <ParentDashboard />;
   return <StudentDashboard />;
 }
 
@@ -50,8 +55,10 @@ function App() {
               <Route path="leaderboard" element={<LeaderboardPage />} />
               <Route path="rewards" element={<RewardsPage />} />
               <Route path="users" element={<AdminUsersCMS />} />
+              <Route path="avatars" element={<AvatarStorePage />} />
+              <Route path="challenges" element={<ChallengesPage />} />
+              <Route path="chat" element={<ChatPage />} />
               <Route path="games" element={<div className="p-6"><h1 className="font-heading font-black text-3xl text-primaryPurple">O'yinlar</h1><p className="font-body mt-2">Tez orada qo'shiladi...</p></div>} />
-              <Route path="chat" element={<div className="p-6"><h1 className="font-heading font-black text-3xl text-primaryPurple">Chat</h1><p className="font-body mt-2">Tez orada qo'shiladi...</p></div>} />
               <Route path="settings" element={<div className="p-6"><h1 className="font-heading font-black text-3xl text-primaryPurple">Sozlamalar</h1><p className="font-body mt-2">Tez orada qo'shiladi...</p></div>} />
               <Route path="students" element={<div className="p-6"><h1 className="font-heading font-black text-3xl text-primaryPurple">O'quvchilar</h1><p className="font-body mt-2">Tez orada qo'shiladi...</p></div>} />
               <Route path="analytics" element={<div className="p-6"><h1 className="font-heading font-black text-3xl text-primaryPurple">Analitika</h1><p className="font-body mt-2">Tez orada qo'shiladi...</p></div>} />

@@ -197,10 +197,22 @@ const LessonViewerPage = () => {
             Natija: {result.score}% ({result.correctCount}/{result.totalQuestions})
           </p>
           {result.passed && <p className="font-body text-lg">+{quiz.xpReward} XP qo'lga kiritdingiz!</p>}
-          <div className="mt-6 flex gap-3 justify-center">
+          <div className="mt-6 flex gap-3 justify-center flex-wrap">
             <Button3D variant="purple" onClick={() => navigate('/dashboard')} data-testid="back-to-dashboard">
               Dashboard
             </Button3D>
+            {result.passed && (
+              <a
+                href={`${API}/certificates/${lessonId}`}
+                target="_blank"
+                rel="noreferrer"
+                data-testid="download-certificate"
+              >
+                <Button3D variant="pink">
+                  📜 Sertifikatni yuklab olish
+                </Button3D>
+              </a>
+            )}
             {!result.passed && (
               <Button3D variant="pink" onClick={() => { setSubmitted(false); setAnswers({}); setResult(null); }} data-testid="retry-quiz">
                 Qaytadan urinish

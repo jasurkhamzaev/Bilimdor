@@ -40,8 +40,8 @@ const DashboardLayout = () => {
   const studentLinks = [
     { to: '/dashboard', icon: House, label: 'Dashboard', end: true },
     { to: '/dashboard/islands', icon: Island, label: t('dashboard.myIslands') },
-    { to: '/dashboard/lessons', icon: Book, label: t('dashboard.myLessons') },
-    { to: '/dashboard/games', icon: GameController, label: t('dashboard.games') },
+    { to: '/dashboard/challenges', icon: GameController, label: 'Vazifalar' },
+    { to: '/dashboard/avatars', icon: ChatCircle, label: 'Avatarlar' },
     { to: '/dashboard/rewards', icon: Trophy, label: t('dashboard.rewards') },
     { to: '/dashboard/leaderboard', icon: ChartBar, label: t('dashboard.leaderboard') },
     { to: '/dashboard/chat', icon: ChatCircle, label: t('dashboard.chat') },
@@ -52,7 +52,15 @@ const DashboardLayout = () => {
     { to: '/dashboard', icon: House, label: 'Dashboard', end: true },
     { to: '/dashboard/lessons', icon: Book, label: 'Darslar' },
     { to: '/dashboard/students', icon: ChatCircle, label: 'O\'quvchilar' },
+    { to: '/dashboard/leaderboard', icon: ChartBar, label: 'Reyting' },
     { to: '/dashboard/analytics', icon: ChartBar, label: 'Analitika' },
+    { to: '/dashboard/settings', icon: Gear, label: 'Sozlamalar' }
+  ];
+
+  const parentLinks = [
+    { to: '/dashboard', icon: House, label: 'Dashboard', end: true },
+    { to: '/dashboard/leaderboard', icon: ChartBar, label: 'Reyting' },
+    { to: '/dashboard/rewards', icon: Trophy, label: 'Mukofotlar' },
     { to: '/dashboard/settings', icon: Gear, label: 'Sozlamalar' }
   ];
 
@@ -66,21 +74,27 @@ const DashboardLayout = () => {
     { to: '/dashboard/settings', icon: Gear, label: 'Sozlamalar' }
   ];
 
-  const links = user?.role === 'admin' ? adminLinks : user?.role === 'teacher' ? teacherLinks : studentLinks;
+  const links = user?.role === 'admin' ? adminLinks
+    : user?.role === 'teacher' ? teacherLinks
+    : user?.role === 'parent' ? parentLinks
+    : studentLinks;
 
   return (
     <div className="flex min-h-screen bg-backgroundLight dark:bg-backgroundDark" data-testid="dashboard-layout">
       {/* Sidebar */}
       <aside className="w-64 bg-white dark:bg-backgroundDark border-r-2 border-primaryPurple/20 flex flex-col" data-testid="dashboard-sidebar">
         <div className="p-6 border-b-2 border-primaryPurple/20">
-          <h1 className="font-heading font-black text-xl text-primaryPurple dark:text-primaryPink">
-            {t('appName')}
-          </h1>
-          <p className="font-body text-sm text-neutralTextLight dark:text-neutralTextDark mt-1">
+          <div className="flex items-center gap-3 mb-3">
+            <img src="https://customer-assets.emergentagent.com/job_knowledge-islands-1/artifacts/s2uxgizu_image.png" alt="Logo" className="w-12 h-12 rounded-xl object-contain" />
+            <h1 className="font-heading font-black text-base text-primaryPurple dark:text-primaryPink leading-tight">
+              {t('appName')}
+            </h1>
+          </div>
+          <p className="font-body text-sm text-neutralTextLight dark:text-neutralTextDark">
             {user?.firstName} {user?.lastName}
           </p>
           <p className="font-body text-xs text-primaryPurple dark:text-primaryPink font-bold">
-            {user?.role === 'admin' ? 'Admin' : user?.role === 'teacher' ? 'O\'qituvchi' : 'O\'quvchi'}
+            {user?.role === 'admin' ? 'Admin' : user?.role === 'teacher' ? "O'qituvchi" : user?.role === 'parent' ? "Ota-ona" : "O'quvchi"}
           </p>
         </div>
 

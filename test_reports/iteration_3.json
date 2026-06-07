@@ -1,0 +1,46 @@
+{
+  "summary": "Phase 3 testing. Backend 17 pytest cases: 16 PASS, 1 FAIL (first-call 500 on /api/challenges/daily due to ObjectId serialization after insert_many). All other new endpoints (parent register, complete challenge with idempotent XP, list/purchase avatars incl. insufficient-XP 400 + unknown 404, certificate PDF gated on completed lesson, AI tutor SSE stream, existing islands/leaderboard/lessons/quizzes/rewards/achievements/admin) all pass. Frontend: landing page is excellent — shield logo in navbar (5 shield-image references), hero shield image with 'Salom! Men Hashimjonman' bubble, magical islands section shows Quvonch/Kashfiyot/Kelajak. Register form correctly shows 3 role testids (role-student/role-teacher/role-parent) and hides the grade (Sinf) field for parent role. End-to-end UI register-as-parent and student-login flows could not be completed in Playwright (form requires 'Parolni tasdiqlang' confirm-password field which my script did not fill; subsequent student register via urllib hit a transient 403 from the ingress). Student sidebar links (Vazifalar/Avatarlar/Chat) therefore not verified from the UI in this run — only backend routes confirmed.",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "GET /api/challenges/daily", "issue": "Returns 500 on the FIRST call of the day when no challenges exist yet. Root cause: after `await db.daily_challenges.insert_many(challenges)`, motor mutates the dicts to attach `_id: ObjectId`, then the function returns those same dicts. FastAPI cannot serialize ObjectId -> 'ValueError: ObjectId object is not iterable / vars() argument must have __dict__'. Subsequent calls succeed because the find() uses {\"_id\": 0} projection. Fix: pop `_id` from each challenge after insert_many, or re-fetch via find({date: today}, {\"_id\": 0}).", "priority": "HIGH"}
+    ],
+    "minor": [
+      {"endpoint": "POST /api/ai/tutor (and /tutor-stream)", "issue": "ai_chat_history grows unbounded — add TTL or cap, carried from iteration 2"}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {"flow": "Student dashboard sidebar (Vazifalar / Avatarlar / Chat) + Parent dashboard", "issue": "Could not be UI-verified end-to-end this run. (a) Register form's Parolni tasdiqlang field was not filled by my script, so parent register did not submit. (b) Student API register hit a transient 403 from the ingress, so student login via UI failed and /dashboard/avatars + /challenges + /islands redirected to /auth. Recommend main agent self-test these pages or that a follow-up testing run fills the confirm-password field.", "affected_selectors": ["[data-testid='role-parent']", "/dashboard/avatars", "/dashboard/challenges", "/dashboard/islands", "ParentDashboard"]}
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_phase3.py",
+    "/app/test_reports/pytest/phase3_results.xml"
+  ],
+  "action_items": [
+    "FIX (HIGH): /api/challenges/daily ObjectId leak — after insert_many, do `for c in challenges: c.pop('_id', None)` (or refetch with projection) before returning. Reproduce: drop the daily_challenges collection (or wait for a new day), then GET /api/challenges/daily -> 500.",
+    "Self-test: log in as a freshly-registered student in the browser and confirm sidebar shows Vazifalar / Avatarlar / Chat links, and that /dashboard/avatars renders the 9-avatar grid with rarity colors + locked state, /dashboard/challenges renders 3 cards with 'Bajardim' buttons, /dashboard/islands renders the magical map.",
+    "Self-test: register via UI as parent (fill Parolni tasdiqlang) and confirm redirect to /dashboard renders ParentDashboard with top-students leaderboard.",
+    "(Carried) Split server.py — now ~1600 lines, well beyond the 700-line guideline. Move auth, ai, challenges, avatars, certificates, websocket into routers/.",
+    "(Carried) Add 'one-pass-per-quiz' check to prevent XP farming via repeat quiz submissions.",
+    "(Carried) FRONTEND_URL still defaults to localhost in backend/.env (CORS works only thanks to ingress)."
+  ],
+  "critical_code_review_comments": [
+    "BUG: /api/challenges/daily returns 500 first time due to ObjectId leak after insert_many (see above).",
+    "CertificatesPDF: lesson_title uses lesson.get('titleUz') or lesson.get('title') — drawCentredString does NOT support non-Latin/Cyrillic glyphs with default Helvetica; Uzbek Cyrillic or Apostrophe-rich Latin should render OK with Helvetica but consider registering a Unicode font for safety.",
+    "AVAILABLE_AVATARS is a module-level constant (good), but purchase has no record of ownership — user can re-purchase same avatar repeatedly (idempotent in effect, but no inventory). Consider tracking owned avatars per user if future features require it.",
+    "WebSocket chat: token in query param is fine; recent history is sent for every reconnect — could be heavy. Add pagination.",
+    "server.py at ~1600 lines — split into routers.",
+    "/api/admin/users response: `_id` is stripped (popped). Verified clean."
+  ],
+  "updated_files": ["/app/backend/tests/test_phase3.py", "/app/test_reports/iteration_3.json", "/app/test_reports/pytest/phase3_results.xml"],
+  "success_rate": {"backend": "94% (16/17 pytest; one HIGH-severity 500 bug confirmed reproducible)", "frontend": "~70% — landing page + register-role selector verified; student/parent dashboards and new student pages not UI-verified due to test-script gap (confirm-password field) + transient 403"},
+  "test_credentials": "admin@hashimjon.uz / admin123. Parents/students registered dynamically with test_parent_* / test_stud_* emails via /api/auth/register.",
+  "seed_data_creation": "test_phase3.py creates one parent account per session and uses admin to complete a lesson + claim one daily challenge. Daily challenges + lesson progress persist in DB.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend pytest at /app/backend/tests/test_phase3.py (17 cases). The single failure is deterministic only on a fresh day — after first hit, daily_challenges collection has docs and subsequent calls succeed. To reproduce, drop daily_challenges before the test. Frontend register form has 5 fields: Ism, Familiya, Email, Parol, Parolni tasdiqlang (confirm password) — must fill confirm-password to submit. Role testids: role-student / role-teacher / role-parent. Hero image and shield logo URLs match the spec.",
+  "rca of the issue": "GET /api/challenges/daily 500 RCA: When no challenges exist for today, the handler builds 3 dicts and calls `db.daily_challenges.insert_many(challenges)`. PyMongo/motor mutate each input dict in place to add `_id: ObjectId(...)`. The handler then loops over `challenges` to attach progress/completed and returns the list to FastAPI. FastAPI's JSON encoder cannot serialize ObjectId (it isn't iterable and has no __dict__), producing 'ValueError: [TypeError(\"ObjectId object is not iterable\"), TypeError(\"vars() argument must have __dict__ attribute\")]' -> 500. Fix: pop `_id` from each challenge dict after insert_many, e.g. `for c in challenges: c.pop('_id', None)`. Verified by re-running the same test after first call succeeded (find() with projection returns clean docs)."
+}
