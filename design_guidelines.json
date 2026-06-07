@@ -1,0 +1,86 @@
+{
+  "theme_and_archetype": {
+    "domain": "Education, Kids SaaS",
+    "theme": "Light (with Dark mode support)",
+    "archetype": "6 (Vibrant Play)",
+    "reasoning": "Duolingo/Disney inspired gamified edtech for kids. Needs to be extremely friendly, tactile, and highly engaging with thick rounded shapes and vibrant colors."
+  },
+  "typography": {
+    "heading_font": "Poppins",
+    "body_font": "Nunito",
+    "rules": {
+      "h1": "text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight",
+      "h2": "text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight",
+      "h3": "text-xl sm:text-2xl font-bold",
+      "body": "text-base sm:text-lg font-medium leading-relaxed",
+      "buttons_labels": "text-sm sm:text-base font-bold uppercase tracking-wider"
+    }
+  },
+  "color_palette": {
+    "primary_pink": "#E879A8",
+    "primary_purple": "#9B59F5",
+    "primary_blue": "#5B8DEF",
+    "background_light": "#F5F0FF",
+    "background_dark": "#1A1525",
+    "success": "#22C55E",
+    "warning": "#F59E0B",
+    "danger": "#EF4444",
+    "neutral_text_light": "#4B4554",
+    "neutral_text_dark": "#E5E0F0",
+    "island_themes": {
+      "quvonch_1_4": "Pastel Pink and Soft Yellow",
+      "kashfiyot_5_8": "Vibrant Blue and Forest Green",
+      "kelajak_9_11": "Dark Purple and Neon Blue"
+    }
+  },
+  "surface_strategies": {
+    "buttons": "The 'Duolingo' 3D Button: Flat vibrant background, extra rounded (rounded-2xl or rounded-full), heavy solid bottom border (border-b-4) of a darker shade. On active/click: translate-y-1, border-b-0, mt-1 to simulate physical pressing.",
+    "cards": "Soft white/dark background, high border radius (rounded-3xl), subtle diffuse shadow, 2px solid border in a very light tint of the primary color to make it pop.",
+    "dashboard_widgets": "Tactile Neo-Brutalism but soft. Thick borders, generous padding (p-6), distinct background colors for different states."
+  },
+  "spacing_and_layout": {
+    "general": "Extremely generous padding (p-6, p-8). Elements must never feel cramped. Kids need large tap targets.",
+    "grid_mode": "Bento Grid for Dashboard, but with playful asymmetrical card sizes. Use wide gaps (gap-6 or gap-8).",
+    "mobile_first": "Navigation should prioritize a bottom tab bar on mobile (like Duolingo app) and a thick sidebar on desktop."
+  },
+  "motion_and_interactions": {
+    "hover_states": "Scale up slightly (scale-105) for cards, bounce effect for icons.",
+    "click_states": "Physical push-down effect (scale-95).",
+    "page_transitions": "Framer motion staggered entrance for list items. The mascot (Hashimjon) should float and bob continuously."
+  },
+  "components_customization": {
+    "shadcn_overrides": "Override all Shadcn default radii to `rounded-2xl` or `rounded-full`. Remove the thin gray borders and replace with thicker (2px) tinted borders. Replace default gray hover states with tinted colorful hover states.",
+    "forms": "Inputs must be large (h-14), rounded-2xl, with thick borders that change to Primary Blue or Primary Pink on focus.",
+    "progress_bars": "Thick (h-4 or h-6), fully rounded, candy-striped or solid vibrant colors."
+  },
+  "media_and_assets": {
+    "icons_library": "@phosphor-icons/react (Duotone weight)",
+    "image_urls": {
+      "hero_island_map": {
+        "url": "https://images.unsplash.com/photo-1674836979239-6356712d5365?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1ODF8MHwxfHNlYXJjaHwxfHwzZCUyMGNhcnRvb24lMjBpc2xhbmQlMjBtYXB8ZW58MHx8fHwxNzgwODExOTYzfDA&ixlib=rb-4.1.0&q=85",
+        "description": "3D clay-style island map for the Knowledge Islands background"
+      },
+      "hashimjon_mascot": {
+        "url": "https://images.unsplash.com/photo-1639628735078-ed2f038a193e?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1Nzd8MHwxfHNlYXJjaHwxfHxjdXRlJTIwY2FydG9vbiUyMGJveSUyMDNkfGVufDB8fHx8MTc4MDgxMTk2M3ww&ixlib=rb-4.1.0&q=85",
+        "description": "Cute 3D cartoon boy character representing Hashimjon"
+      },
+      "gamification_coins": {
+        "url": "https://images.pexels.com/photos/12198528/pexels-photo-12198528.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "description": "3D render of gold coins for XP, rewards, and leaderboards"
+      }
+    }
+  },
+  "accessibility_and_testing": {
+    "contrast": "Ensure text inside the vibrant colored buttons is white and bold to maintain contrast. Drop shadows on text if overlaid on map.",
+    "testing_attributes": "All interactive elements must have `data-testid` in kebab-case (e.g., `data-testid=\"start-lesson-button\"`)."
+  },
+  "instructions_to_main_agent": [
+    "Install `framer-motion` and `@phosphor-icons/react`.",
+    "Configure Tailwind with the custom colors: primaryPink, primaryPurple, primaryBlue, backgroundLight, backgroundDark, success, warning, danger.",
+    "Load Google Fonts Nunito (body) and Poppins (headings).",
+    "Build the 3D button component as described (flat bg, thick border-b, push down on active).",
+    "Implement a scrollable 'Knowledge Islands' path using standard flex/grid or absolute positioning over the map background, similar to a Candy Crush or Duolingo path.",
+    "Design the Student Dashboard with large, playful cards for XP, Streaks, and Daily Challenges.",
+    "In Dark Mode, the background becomes deep dark purple (#1A1525) and neon accents are used."
+  ]
+}
