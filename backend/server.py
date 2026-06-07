@@ -19,6 +19,7 @@ import bcrypt
 import jwt
 import secrets
 import requests
+import json as json_lib
 from openai import AsyncOpenAI
 
 # Kimi AI Client (OpenAI-compatible)
@@ -487,6 +488,16 @@ async def startup():
     await db.islands.create_index("order")
     await db.subjects.create_index([("islandId", 1), ("order", 1)])
     await db.lessons.create_index([("subjectId", 1), ("order", 1)])
+    # TTL index for AI chat history - 30 days
+    try:
+        await db.ai_chat_history.create_index("createdAt", expireAfterSeconds=2592000)
+    except Exception:
+        pass
+    # TTL for daily challenges - 7 days
+    try:
+        await db.daily_challenges.create_index("createdAt", expireAfterSeconds=604800)
+    except Exception:
+        pass
     
     logging.info("Database indexes created")
 
@@ -657,6 +668,18 @@ async def refresh_token(request: Request, response: Response):
         raise HTTPException(status_code=401, detail="Refresh token expired")
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid refresh token")
+
+@api_router.get("/auth/ws-token")
+async def get_ws_token(current_user: dict = Depends(get_current_user)):
+    """Generate short-lived token for WebSocket authentication (5 minutes)"""
+    payload = {
+        "sub": current_user["id"],
+        "email": current_user["email"],
+        "exp": datetime.now(timezone.utc) + timedelta(minutes=5),
+        "type": "ws"
+    }
+    token = jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+    return {"token": token}
 
 # Islands endpoints
 @api_router.get("/islands")
@@ -1212,6 +1235,87 @@ async def ai_homework_helper(req: AIHomeworkRequest, current_user: dict = Depend
         logging.error(f"AI Homework error: {e}")
         raise HTTPException(status_code=500, detail=f"AI xatolik: {str(e)}")
 
+@api_router.post("/ai/learning-path")
+async def ai_learning_path(current_user: dict = Depends(get_current_user)):
+    """AI Personalized Learning Path - Shaxsiy o'quv yo'li"""
+    # Analyze user's quiz performance and progress
+    user_id = current_user["id"]
+    grade = current_user.get("grade") or 5
+    
+    # Get user's quiz submissions
+    submissions = await db.quiz_submissions.find({"userId": user_id}, {"_id": 0}).to_list(100)
+    progress_records = await db.user_progress.find({"userId": user_id, "completed": True}, {"_id": 0}).to_list(100)
+    
+    # Aggregate strengths and weaknesses by subject
+    quiz_by_subject = {}
+    for sub in submissions:
+        quiz_data = await db.quizzes.find_one({"id": sub["quizId"]})
+        if quiz_data:
+            lesson = await db.lessons.find_one({"id": quiz_data["lessonId"]})
+            if lesson:
+                subject_id = lesson.get("subjectId")
+                if subject_id:
+                    if subject_id not in quiz_by_subject:
+                        quiz_by_subject[subject_id] = {"scores": [], "count": 0}
+                    quiz_by_subject[subject_id]["scores"].append(sub["score"])
+                    quiz_by_subject[subject_id]["count"] += 1
+    
+    # Compute averages
+    subject_performance = []
+    for sid, data in quiz_by_subject.items():
+        subject = await db.subjects.find_one({"id": sid}, {"_id": 0})
+        if subject:
+            avg = sum(data["scores"]) / len(data["scores"]) if data["scores"] else 0
+            subject_performance.append({
+                "subject": subject["nameUz"],
+                "avgScore": round(avg, 1),
+                "attempts": data["count"]
+            })
+    
+    # Build context for AI
+    if not subject_performance:
+        context = f"O'quvchi {grade}-sinfda. Hozircha test natijalari yo'q. Yangi boshlovchi sifatida o'quv yo'lini tavsiya qiling."
+    else:
+        context = f"O'quvchi {grade}-sinfda. Test natijalari:\n"
+        for sp in subject_performance:
+            context += f"- {sp['subject']}: o'rtacha {sp['avgScore']}% ({sp['attempts']} marta)\n"
+        context += f"\nTugatilgan darslar: {len(progress_records)} ta"
+    
+    system_msg = (
+        "Sen shaxsiy o'quv maslahatchisi. O'quvchining test natijalarini tahlil qilib, "
+        "uning kuchli va zaif fanlarini aniqla. Keyin shaxsiy o'quv yo'lini tavsiya qil. "
+        "Javobni QAT'IY JSON formatda ber:\n"
+        '{"strengths": ["Fan1", "Fan2"], "weaknesses": ["Fan3"], '
+        '"recommendations": [{"subject": "...", "priority": "high|medium|low", "advice": "..."}], '
+        '"motivationMessage": "Do\'stona xabar"}'
+    )
+    
+    try:
+        response = await kimi_client.chat.completions.create(
+            model=KIMI_MODEL,
+            messages=[
+                {"role": "system", "content": system_msg},
+                {"role": "user", "content": context}
+            ],
+            temperature=1,
+            response_format={"type": "json_object"}
+        )
+        
+        result = json_lib.loads(response.choices[0].message.content)
+        result["userPerformance"] = subject_performance
+        result["totalCompletedLessons"] = len(progress_records)
+        
+        # Save to user's profile for caching
+        await db.users.update_one(
+            {"_id": ObjectId(user_id)},
+            {"$set": {"learningPath": result, "learningPathUpdatedAt": datetime.now(timezone.utc).isoformat()}}
+        )
+        
+        return result
+    except Exception as e:
+        logging.error(f"AI Learning Path error: {e}")
+        raise HTTPException(status_code=500, detail=f"AI tahlilida xatolik: {str(e)}")
+
 # ============ DAILY CHALLENGES ============
 @api_router.get("/challenges/daily")
 async def get_daily_challenges(current_user: dict = Depends(get_current_user)):
@@ -1330,7 +1434,19 @@ async def generate_certificate(lesson_id: str, current_user: dict = Depends(get_
     from reportlab.lib.pagesizes import landscape, A4
     from reportlab.pdfgen import canvas as pdf_canvas
     from reportlab.lib import colors as rl_colors
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
     from io import BytesIO
+    
+    # Register Cyrillic-compatible fonts
+    try:
+        pdfmetrics.registerFont(TTFont('DejaVu', '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'))
+        pdfmetrics.registerFont(TTFont('DejaVu-Bold', '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'))
+        font_regular = 'DejaVu'
+        font_bold = 'DejaVu-Bold'
+    except Exception:
+        font_regular = 'Helvetica'
+        font_bold = 'Helvetica-Bold'
     
     progress = await db.user_progress.find_one({
         "userId": current_user["id"],
@@ -1360,38 +1476,38 @@ async def generate_certificate(lesson_id: str, current_user: dict = Depends(get_
     pdf.rect(40, 40, width-80, height-80)
     
     pdf.setFillColor(rl_colors.HexColor("#9B59F5"))
-    pdf.setFont("Helvetica-Bold", 48)
-    pdf.drawCentredString(width/2, height-120, "CERTIFICATE")
+    pdf.setFont(font_bold, 48)
+    pdf.drawCentredString(width/2, height-120, "SERTIFIKAT")
     
     pdf.setFillColor(rl_colors.HexColor("#5B8DEF"))
-    pdf.setFont("Helvetica-Bold", 24)
+    pdf.setFont(font_bold, 24)
     pdf.drawCentredString(width/2, height-160, "Hashimjon Akademiyasi")
     
     pdf.setFillColor(rl_colors.HexColor("#4B4554"))
-    pdf.setFont("Helvetica", 18)
-    pdf.drawCentredString(width/2, height-220, "Awarded to:")
+    pdf.setFont(font_regular, 18)
+    pdf.drawCentredString(width/2, height-220, "Bu sertifikat berildi:")
     
     pdf.setFillColor(rl_colors.HexColor("#E879A8"))
-    pdf.setFont("Helvetica-Bold", 36)
+    pdf.setFont(font_bold, 36)
     full_name = f"{current_user.get('firstName', '')} {current_user.get('lastName', '')}"
     pdf.drawCentredString(width/2, height-270, full_name)
     
     pdf.setFillColor(rl_colors.HexColor("#4B4554"))
-    pdf.setFont("Helvetica", 16)
+    pdf.setFont(font_regular, 16)
     lesson_title = lesson.get('titleUz') or lesson.get('title', '')
-    pdf.drawCentredString(width/2, height-310, f'for completing "{lesson_title}"')
+    pdf.drawCentredString(width/2, height-310, f'"{lesson_title}" darsini muvaffaqiyatli yakunladi')
     
-    pdf.setFont("Helvetica", 14)
-    pdf.drawCentredString(width/2, height-360, f"Date: {datetime.now(timezone.utc).strftime('%d.%m.%Y')}")
+    pdf.setFont(font_regular, 14)
+    pdf.drawCentredString(width/2, height-360, f"Sana: {datetime.now(timezone.utc).strftime('%d.%m.%Y')}")
     
     pdf.setFillColor(rl_colors.HexColor("#22C55E"))
-    pdf.setFont("Helvetica-Bold", 20)
-    pdf.drawCentredString(width/2, height-410, f"+{lesson.get('xpReward', 0)} XP earned")
+    pdf.setFont(font_bold, 20)
+    pdf.drawCentredString(width/2, height-410, f"+{lesson.get('xpReward', 0)} XP")
     
     pdf.setStrokeColor(rl_colors.HexColor("#9B59F5"))
     pdf.line(width/2 - 100, 90, width/2 + 100, 90)
     pdf.setFillColor(rl_colors.HexColor("#4B4554"))
-    pdf.setFont("Helvetica", 12)
+    pdf.setFont(font_regular, 12)
     pdf.drawCentredString(width/2, 75, "Hashimjon Akademiyasi")
     
     pdf.showPage()
@@ -1531,9 +1647,11 @@ manager = ConnectionManager()
 
 @app.websocket("/api/ws/chat/{room_id}")
 async def websocket_chat(websocket: WebSocket, room_id: str, token: str = Query(None)):
-    # Verify token
     try:
         payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        if payload.get("type") not in ("ws", "access"):
+            await websocket.close(code=1008)
+            return
         user_id = payload["sub"]
         user = await db.users.find_one({"_id": ObjectId(user_id)})
         if not user:

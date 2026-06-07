@@ -1,0 +1,68 @@
+{
+  "greeting": "Welcome to the Knowledge Adventure!",
+  "appName": "Hashimjon Academy",
+  "navbar": {
+    "islands": "Islands",
+    "subjects": "Subjects",
+    "leaderboard": "Leaderboard",
+    "rewards": "Rewards"
+  },
+  "hero": {
+    "badge": "New adventure has begun",
+    "title": "Hashimjon Academy",
+    "description": "Travel through magical knowledge islands. New games, rewards and friends await you.",
+    "startButton": "Start the adventure",
+    "mapButton": "View the map",
+    "hashimjonGreeting": "Hi! I'm Hashimjon"
+  },
+  "islands": {
+    "quvonch": {
+      "name": "Joy Island",
+      "grades": "Grades 1-4",
+      "description": "Island of first knowledge and basic skills"
+    },
+    "kashfiyot": {
+      "name": "Discovery Island",
+      "grades": "Grades 5-8",
+      "description": "Adventures and discoveries in new subjects"
+    },
+    "kelajak": {
+      "name": "Future Island",
+      "grades": "Grades 9-11",
+      "description": "Advanced knowledge and future careers"
+    }
+  },
+  "auth": {
+    "login": "Login",
+    "register": "Register",
+    "email": "Email",
+    "password": "Password",
+    "confirmPassword": "Confirm Password",
+    "firstName": "First Name",
+    "lastName": "Last Name",
+    "phone": "Phone",
+    "grade": "Grade",
+    "parentPhone": "Parent Phone",
+    "role": "Role",
+    "student": "Student",
+    "teacher": "Teacher",
+    "forgotPassword": "Forgot Password?",
+    "rememberMe": "Remember Me",
+    "loginButton": "Login",
+    "registerButton": "Register"
+  },
+  "dashboard": {
+    "welcome": "Welcome",
+    "myIslands": "My Islands",
+    "myLessons": "My Lessons",
+    "games": "Games",
+    "rewards": "Rewards",
+    "leaderboard": "Leaderboard",
+    "chat": "Chat",
+    "settings": "Settings",
+    "xp": "XP",
+    "streak": "Streak",
+    "rank": "Rank",
+    "dailyChallenge": "Daily Challenge"
+  }
+}

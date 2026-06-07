@@ -13,9 +13,10 @@ const Navbar = () => {
   const { theme, toggleTheme } = useTheme();
   const { user } = useAuth();
 
-  const changeLanguage = (lang) => {
-    i18n.changeLanguage(lang);
-    localStorage.setItem('language', lang);
+  const changeLanguage = () => {
+    const next = i18n.language === 'uz' ? 'ru' : i18n.language === 'ru' ? 'en' : 'uz';
+    i18n.changeLanguage(next);
+    localStorage.setItem('language', next);
   };
 
   return (
@@ -45,8 +46,9 @@ const Navbar = () => {
           </div>
 
           <div className="flex items-center gap-2 sm:gap-4">
-            <button onClick={() => changeLanguage(i18n.language === 'uz' ? 'ru' : 'uz')} className="p-2 rounded-xl hover:bg-primaryPurple/10" data-testid="navbar-language-toggle">
+            <button onClick={changeLanguage} className="p-2 rounded-xl hover:bg-primaryPurple/10 flex items-center gap-1" data-testid="navbar-language-toggle">
               <Globe size={24} className="text-primaryPurple" />
+              <span className="text-xs font-bold text-primaryPurple uppercase">{i18n.language}</span>
             </button>
             <button onClick={toggleTheme} className="p-2 rounded-xl hover:bg-primaryPurple/10" data-testid="navbar-theme-toggle">
               {theme === 'light' ? <Moon size={24} className="text-primaryPurple" /> : <Sun size={24} className="text-primaryPink" />}

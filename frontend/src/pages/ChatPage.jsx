@@ -1,14 +1,16 @@
 import React, { useEffect, useState, useRef } from 'react';
+import axios from 'axios';
 import { useAuth } from '@/contexts/AuthContext';
 import { PaperPlaneRight, ChatCircle, Users } from '@phosphor-icons/react';
-import { toast } from 'sonner';
+
+const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const ChatPage = () => {
   const { user } = useAuth();
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [connected, setConnected] = useState(false);
-  const [room, setRoom] = useState('global');
+  const [room] = useState('global');
   const wsRef = useRef(null);
   const messagesEndRef = useRef(null);
 
@@ -24,44 +26,40 @@ const ChatPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [room]);
 
-  const connect = () => {
-    // Get token from cookies isn't possible directly via JS due to httpOnly
-    // Use a query param token approach - get fresh token via api
-    const wsUrl = process.env.REACT_APP_BACKEND_URL.replace('https://', 'wss://').replace('http://', 'ws://');
-    // We need to get the token. Since httpOnly cookies can't be read in JS,
-    // We'll need to add a token retrieval mechanism. For now, use a "session" approach
-    // by storing access token from a special endpoint.
-    
-    // Quick approach: send via cookie - WebSocket sends cookies automatically
-    const ws = new WebSocket(`${wsUrl}/api/ws/chat/${room}?token=session`);
-    
-    ws.onopen = () => {
-      setConnected(true);
-      setMessages([]);
-    };
-    
-    ws.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        if (data.type === 'message' || data.type === 'history') {
-          setMessages((prev) => [...prev, data]);
-        } else if (data.type === 'join') {
-          setMessages((prev) => [...prev, { ...data, system: true, content: `${data.user} qo'shildi` }]);
+  const connect = async () => {
+    try {
+      const { data } = await axios.get(`${API}/auth/ws-token`, { withCredentials: true });
+      const token = data.token;
+      
+      const wsUrl = process.env.REACT_APP_BACKEND_URL.replace('https://', 'wss://').replace('http://', 'ws://');
+      const ws = new WebSocket(`${wsUrl}/api/ws/chat/${room}?token=${token}`);
+      
+      ws.onopen = () => {
+        setConnected(true);
+        setMessages([]);
+      };
+      
+      ws.onmessage = (event) => {
+        try {
+          const d = JSON.parse(event.data);
+          if (d.type === 'message' || d.type === 'history') {
+            setMessages((prev) => [...prev, d]);
+          } else if (d.type === 'join') {
+            setMessages((prev) => [...prev, { ...d, system: true, content: `${d.user} qo'shildi` }]);
+          }
+        } catch (e) {
+          console.error(e);
         }
-      } catch (e) {
-        console.error(e);
-      }
-    };
-    
-    ws.onerror = () => {
+      };
+      
+      ws.onerror = () => setConnected(false);
+      ws.onclose = () => setConnected(false);
+      
+      wsRef.current = ws;
+    } catch (error) {
+      console.error('WS connection failed:', error);
       setConnected(false);
-    };
-    
-    ws.onclose = () => {
-      setConnected(false);
-    };
-    
-    wsRef.current = ws;
+    }
   };
 
   const sendMessage = () => {
@@ -75,14 +73,10 @@ const ChatPage = () => {
       <div className="mb-6">
         <h1 className="font-heading font-black text-3xl text-primaryPurple dark:text-primaryPink flex items-center gap-3">
           <ChatCircle weight="fill" size={36} />
-          Chat
+          Global Chat
         </h1>
         <p className="font-body text-sm text-neutralTextLight dark:text-neutralTextDark">
-          {connected ? (
-            <span className="text-success">● Ulandi - Global xona</span>
-          ) : (
-            <span className="text-warning">○ Ulanmoqda... WebSocket chat hozircha test rejimida (token kerakligi sababli to'liq ishlash uchun login session kerak)</span>
-          )}
+          {connected ? <span className="text-success">● Ulandi</span> : <span className="text-warning">○ Ulanmoqda...</span>}
         </p>
       </div>
 
@@ -101,14 +95,10 @@ const ChatPage = () => {
               data-testid={`msg-${idx}`}
             >
               {msg.system ? (
-                <div className="text-center text-xs text-neutralTextLight dark:text-neutralTextDark italic w-full">
-                  {msg.content}
-                </div>
+                <div className="text-center text-xs text-neutralTextLight dark:text-neutralTextDark italic w-full">{msg.content}</div>
               ) : (
                 <div className={`max-w-[70%] ${msg.userId === user?.id ? 'bg-primaryPurple text-white' : 'bg-muted text-neutralTextLight dark:text-white'} rounded-2xl px-4 py-2`}>
-                  {msg.userId !== user?.id && (
-                    <div className="text-xs font-bold mb-1 opacity-80">{msg.userName}</div>
-                  )}
+                  {msg.userId !== user?.id && <div className="text-xs font-bold mb-1 opacity-80">{msg.userName}</div>}
                   <div className="font-body text-sm break-words">{msg.content}</div>
                 </div>
               )}

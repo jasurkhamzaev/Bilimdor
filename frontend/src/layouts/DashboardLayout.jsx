@@ -32,9 +32,10 @@ const DashboardLayout = () => {
     navigate('/', { replace: true });
   };
 
-  const changeLanguage = (lang) => {
-    i18n.changeLanguage(lang);
-    localStorage.setItem('language', lang);
+  const handleLanguageToggle = () => {
+    const next = i18n.language === 'uz' ? 'ru' : i18n.language === 'ru' ? 'en' : 'uz';
+    i18n.changeLanguage(next);
+    localStorage.setItem('language', next);
   };
 
   const studentLinks = [
