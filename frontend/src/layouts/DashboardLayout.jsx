@@ -61,6 +61,7 @@ const DashboardLayout = () => {
     { to: '/dashboard/users', icon: ChatCircle, label: 'Foydalanuvchilar' },
     { to: '/dashboard/islands', icon: Island, label: 'Orollar' },
     { to: '/dashboard/lessons', icon: Book, label: 'Darslar' },
+    { to: '/dashboard/leaderboard', icon: ChartBar, label: 'Reyting' },
     { to: '/dashboard/rewards', icon: Trophy, label: 'Mukofotlar' },
     { to: '/dashboard/settings', icon: Gear, label: 'Sozlamalar' }
   ];

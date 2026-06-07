@@ -58,7 +58,7 @@ const AITutorChat = ({ context }) => {
         onClick={() => setIsOpen(!isOpen)}
         whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.9 }}
-        className="fixed bottom-6 right-6 z-50 w-16 h-16 rounded-full bg-gradient-to-br from-primaryPurple to-primaryPink shadow-2xl flex items-center justify-center"
+        className="fixed bottom-24 right-6 z-[9999] w-16 h-16 rounded-full bg-gradient-to-br from-primaryPurple to-primaryPink shadow-2xl flex items-center justify-center"
         data-testid="ai-tutor-toggle"
       >
         {isOpen ? <X weight="bold" size={28} className="text-white" /> : <ChatTeardropDots weight="fill" size={28} className="text-white" />}
@@ -70,7 +70,7 @@ const AITutorChat = ({ context }) => {
             initial={{ opacity: 0, scale: 0.8, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.8, y: 20 }}
-            className="fixed bottom-24 right-6 z-50 w-[400px] max-w-[calc(100vw-3rem)] h-[600px] max-h-[calc(100vh-8rem)] bg-white dark:bg-backgroundDark rounded-3xl shadow-2xl border-2 border-primaryPurple flex flex-col"
+            className="fixed bottom-44 right-6 z-[9999] w-[400px] max-w-[calc(100vw-3rem)] h-[600px] max-h-[calc(100vh-12rem)] bg-white dark:bg-backgroundDark rounded-3xl shadow-2xl border-2 border-primaryPurple flex flex-col"
             data-testid="ai-tutor-chat"
           >
             <div className="bg-gradient-to-r from-primaryPurple to-primaryPink p-4 rounded-t-3xl flex items-center gap-3">

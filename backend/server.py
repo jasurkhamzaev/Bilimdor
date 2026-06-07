@@ -941,6 +941,13 @@ async def submit_quiz(req: SubmitQuizRequest, current_user: dict = Depends(get_c
     score = int((correct_count / len(questions)) * 100) if questions else 0
     passed = score >= quiz.get("passingScore", 70)
     
+    # Check if user already passed this quiz before
+    already_passed = await db.quiz_submissions.find_one({
+        "userId": current_user["id"],
+        "quizId": req.quizId,
+        "passed": True
+    })
+    
     submission = {
         "id": str(uuid.uuid4()),
         "userId": current_user["id"],
@@ -953,7 +960,8 @@ async def submit_quiz(req: SubmitQuizRequest, current_user: dict = Depends(get_c
     
     await db.quiz_submissions.insert_one(submission)
     
-    if passed:
+    # Award XP only on first pass
+    if passed and not already_passed:
         xp_reward = quiz.get("xpReward", 20)
         await db.users.update_one(
             {"_id": ObjectId(current_user["id"])},
@@ -963,6 +971,7 @@ async def submit_quiz(req: SubmitQuizRequest, current_user: dict = Depends(get_c
     submission.pop("_id", None)
     submission["correctCount"] = correct_count
     submission["totalQuestions"] = len(questions)
+    submission["xpAwarded"] = passed and not already_passed
     return submission
 
 # ============ ASSIGNMENTS / HOMEWORK ============

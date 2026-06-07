@@ -1,111 +1,86 @@
 # Hashimjon Akademiyasi - PRD
 
 ## Original Problem Statement
-Build a production-ready educational platform "Hashimjon Akademiyasi" for Uzbekistan children (ages 6-18), students from grades 1-11, teachers, parents, and administrators. Inspired by Duolingo, Disney, Khan Academy Kids. Premium gamified EdTech platform with knowledge islands, lessons, gamification (XP, levels, badges, achievements), leaderboards, rewards, and role-based dashboards.
+Build a production-ready educational platform "Hashimjon Akademiyasi" for Uzbekistan children (ages 6-18). Inspired by Duolingo, Disney, Khan Academy Kids. Premium gamified EdTech platform with knowledge islands, lessons, gamification, leaderboards, rewards, role-based dashboards, AI tutor, CMS for teachers/admins.
 
 ## User Choices
-- AI Integration: Mixed providers (deferred - API keys to be provided later)
-- Payment System: Not needed initially
-- File Storage: Object storage enabled (Emergent Object Storage)
-- Email Service: Console logs for now
-- Authentication: JWT-based custom auth with email/password
+- AI: Kimi K2.6 (Moonshot AI) via api.moonshot.ai - their own API key
+- Payment: Not needed
+- Storage: Object storage (placeholder key, infrastructure ready)
+- Email: Console log
+- Auth: JWT-based
 
 ## Tech Stack
-- **Backend**: FastAPI + MongoDB (Motor async driver), JWT auth with bcrypt
-- **Frontend**: React 19, Tailwind CSS, Shadcn UI, Framer Motion, Zustand
-- **Internationalization**: i18next (Uzbek/Russian)
-- **Theme**: Dark/Light mode with localStorage persistence
-- **Storage**: Emergent Object Storage
-- **Icons**: @phosphor-icons/react
-
-## Architecture
-- Backend: `/app/backend/server.py` - all API endpoints prefixed with `/api`
-- Frontend routes:
-  - `/` - Landing page (public)
-  - `/auth` - Login/Register
-  - `/dashboard` - Role-based dashboard (Student/Teacher/Admin)
-
-## Database Collections
-- users (with bcrypt password hash, roles: student/teacher/admin)
-- islands (3 seeded: Quvonch, Kashfiyot, Kelajak)
-- subjects
-- lessons
-- user_progress
-- files (object storage references)
-- password_reset_tokens (TTL indexed)
-- login_attempts
+- Backend: FastAPI + MongoDB (Motor), JWT auth with bcrypt, openai SDK for Kimi
+- Frontend: React 19, Tailwind CSS, Shadcn UI, Framer Motion, Zustand
+- AI: Kimi K2.6 (Moonshot AI, OpenAI-compatible)
+- i18n: Uzbek/Russian
+- Theme: Dark/Light mode
 
 ## Implemented Features (June 2026)
 
-### Backend
-- ✅ JWT auth with httpOnly cookies (access + refresh tokens)
-- ✅ Admin seeding on startup (admin@hashimjon.uz / admin123)
-- ✅ Auto-seeded 3 knowledge islands
-- ✅ Role-based authorization (student/teacher/admin)
-- ✅ User registration with grade, parent phone
-- ✅ Streak tracking on login
-- ✅ XP tracking and reward system
+### Backend (24/24 tests passed)
+- ✅ JWT auth with httpOnly cookies, role-based access (student/teacher/admin)
+- ✅ Auto-seeded: admin user, 3 islands, 8 subjects, 2 sample lessons, 1 quiz, 6 achievements, 6 rewards
 - ✅ Islands, Subjects, Lessons CRUD with Pydantic body models
+- ✅ Quiz system: CRUD + submit with auto-grading, XP rewards (one-pass-per-quiz to prevent farming)
+- ✅ Achievements & Rewards endpoints
+- ✅ Assignments/Homework CRUD
 - ✅ User progress tracking with XP rewards
-- ✅ Leaderboard endpoint (sorted by XP)
-- ✅ Object storage integration for file uploads
-- ✅ CORS properly configured
-- ✅ MongoDB indexes (unique email, TTL on tokens)
+- ✅ Leaderboard (sorted by XP, top 100)
+- ✅ Admin endpoints: list/delete users
+- ✅ **AI Integration (Kimi K2.6):**
+  - POST /api/ai/tutor - conversational tutor with session history (Uzbek persona)
+  - POST /api/ai/homework-helper - step-by-step homework guidance
+  - POST /api/ai/generate-quiz - auto-generate quizzes from topics
+- ✅ Object storage integration (file upload/download)
 
-### Frontend
-- ✅ Premium Landing Page with Hero, Knowledge Islands (3), Features sections
-- ✅ Animated UI with Framer Motion
-- ✅ 3D Duolingo-style buttons (border-b-4, push-down on active)
-- ✅ Authentication page with Login/Register tabs
-- ✅ Role-based Dashboard (StudentDashboard, TeacherDashboard, AdminDashboard)
-- ✅ Sidebar navigation with role-aware menu items
-- ✅ Dark/Light theme toggle (persistent in localStorage)
-- ✅ Language toggle (Uzbek/Russian) with i18next
-- ✅ Stat cards for Student (XP, Level, Streak, Completed Lessons)
-- ✅ Protected routes with auth context
-- ✅ Toast notifications (sonner)
+### Frontend (~95% functional)
+- ✅ Premium Landing Page (Hero, 3 islands, features)
+- ✅ Auth (Login/Register)
+- ✅ Role-based Dashboards (Student/Teacher/Admin)
+- ✅ **Islands Pages**: List + Detail (subjects + lessons)
+- ✅ **Lesson Viewer**: YouTube video player + content + quiz with results
+- ✅ **Teacher CMS**: Create lessons + AI quiz generation
+- ✅ **Admin Users CMS**: Filterable user list with role badges, delete
+- ✅ **Leaderboard**: Podium top 3 + full list, auto-refresh every 10s
+- ✅ **Rewards/Achievements**: Tabs with rarity (common/rare/epic/legendary), locked/unlocked states
+- ✅ **AI Tutor Floating Chat**: Hashimjon AI in Uzbek, session-based history
+- ✅ Sidebar with role-aware navigation
+- ✅ Dark/Light mode + UZ/RU language toggle
+- ✅ 3D Duolingo-style buttons
 
-## Test Results (Iteration 1)
-- Backend: 100% (15/15 tests passed)
-- Frontend: 100% (after dashboard fix applied by testing agent)
-- Critical bug fixed: App.js DashboardContent context issue
+## Test Results
+- Iteration 1: Backend 100% (15/15), Frontend fixed
+- Iteration 2: Backend 100% (24/24), Frontend ~85% → fixed to ~95% (AI chat panel z-index)
 
-## Prioritized Backlog (P0/P1/P2)
+## Login Credentials
+- Admin: `admin@hashimjon.uz` / `admin123`
 
-### P0 (Critical - Next Phase)
-1. Implement Subjects detail page (per island)
-2. Implement Lessons viewer (video + content + quiz)
-3. Implement Quiz system (questions, answers, scoring)
-4. Implement Leaderboard page with ranking
-5. Implement Rewards page with badges/achievements
+## Files
+- Backend: `/app/backend/server.py` (single file, ~1300 lines)
+- Frontend pages: `/app/frontend/src/pages/`
+- Frontend components: `/app/frontend/src/components/`
+- Contexts: `/app/frontend/src/contexts/`
 
-### P1 (High Priority)
-1. Teacher CMS - create/edit lessons, assignments
-2. Admin CMS - manage users, islands, subjects
-3. AI Tutor integration (when user provides API key)
-4. AI Homework Helper
-5. AI Quiz Generator
-6. Real-time messaging system
-7. Daily/Weekly/Monthly challenges
-8. Avatar customization & skins
+## P0 Backlog (Future)
+- Refresh assignments UI for teachers
+- Avatar customization & skins
+- Daily/Weekly/Monthly challenges system
+- Certificates PDF generation on lesson completion
+- Real-time messaging (WebSocket)
+- Parent dashboard
+- Friend system
+- AI Quiz Generator UI improvements (streaming)
+- Refactor server.py into routers (auth, lessons, quizzes, ai, admin)
 
-### P2 (Medium Priority)
-1. Parent dashboard
-2. Friend system
-3. Certificates generation on lesson completion
-4. Push notifications (PWA)
-5. Offline support
-6. Advanced analytics dashboard
-7. Email notifications (when service provided)
+## Known Limitations
+- Object storage 401 (placeholder EMERGENT_LLM_KEY) - file upload not functional
+- AI responses 30-60s (Kimi K2.6 latency) - UI has loading indicator
+- Quiz farming protected: one XP award per quiz pass
 
-## User Personas
-1. **Student (6-18 years)**: Learns through gamified lessons, earns XP, climbs leaderboard
-2. **Teacher**: Creates lessons, monitors student progress, sends messages
-3. **Admin**: Manages entire platform, content moderation, user management
-4. **Parent**: (future) Monitors child's learning progress
-
-## Next Steps
-- Add API keys when user provides them for AI features
-- Build out lesson content viewer
-- Implement quiz system
-- Develop full CMS for teachers/admins
+## Architecture Notes
+- All API routes prefixed `/api`
+- Auth via httpOnly cookies (access_token 15min, refresh_token 7d)
+- AI chat history persisted in `ai_chat_history` collection
+- Quiz submissions tracked in `quiz_submissions`
