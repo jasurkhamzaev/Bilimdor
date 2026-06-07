@@ -28,7 +28,7 @@ const DashboardLayout = () => {
   const handleLogout = async () => {
     await logout();
     toast.success('Tizimdan chiqdingiz');
-    navigate('/');
+    navigate('/', { replace: true });
   };
 
   const changeLanguage = (lang) => {

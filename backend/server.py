@@ -212,6 +212,31 @@ class UserProgressResponse(BaseModel):
     completedAt: Optional[str] = None
     score: Optional[int] = None
 
+class CreateSubjectRequest(BaseModel):
+    name: str
+    nameUz: str
+    nameRu: str
+    islandId: str
+    icon: str
+    color: str
+    order: int
+
+class CreateLessonRequest(BaseModel):
+    title: str
+    titleUz: str
+    titleRu: str
+    description: str
+    subjectId: str
+    content: str
+    order: int
+    xpReward: int = 10
+    videoUrl: Optional[str] = None
+    isPublished: bool = False
+
+class UpdateProgressRequest(BaseModel):
+    progress: int
+    score: Optional[int] = None
+
 class AchievementResponse(BaseModel):
     id: str
     name: str
@@ -469,6 +494,37 @@ async def logout(response: Response):
     response.delete_cookie(key="refresh_token", path="/")
     return {"message": "Logged out successfully"}
 
+@api_router.post("/auth/refresh")
+async def refresh_token(request: Request, response: Response):
+    refresh = request.cookies.get("refresh_token")
+    if not refresh:
+        raise HTTPException(status_code=401, detail="No refresh token")
+    
+    try:
+        payload = jwt.decode(refresh, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        if payload.get("type") != "refresh":
+            raise HTTPException(status_code=401, detail="Invalid token type")
+        
+        user = await db.users.find_one({"_id": ObjectId(payload["sub"])})
+        if not user:
+            raise HTTPException(status_code=401, detail="User not found")
+        
+        new_access = create_access_token(str(user["_id"]), user["email"])
+        response.set_cookie(
+            key="access_token",
+            value=new_access,
+            httponly=True,
+            secure=False,
+            samesite="lax",
+            max_age=900,
+            path="/"
+        )
+        return {"message": "Token refreshed"}
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Refresh token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid refresh token")
+
 # Islands endpoints
 @api_router.get("/islands")
 async def get_islands():
@@ -491,13 +547,7 @@ async def get_subjects(island_id: Optional[str] = None):
 
 @api_router.post("/subjects")
 async def create_subject(
-    name: str,
-    nameUz: str,
-    nameRu: str,
-    islandId: str,
-    icon: str,
-    color: str,
-    order: int,
+    req: CreateSubjectRequest,
     current_user: dict = Depends(get_current_user)
 ):
     if current_user["role"] not in ["admin", "teacher"]:
@@ -505,13 +555,13 @@ async def create_subject(
     
     subject = {
         "id": str(uuid.uuid4()),
-        "name": name,
-        "nameUz": nameUz,
-        "nameRu": nameRu,
-        "islandId": islandId,
-        "icon": icon,
-        "color": color,
-        "order": order
+        "name": req.name,
+        "nameUz": req.nameUz,
+        "nameRu": req.nameRu,
+        "islandId": req.islandId,
+        "icon": req.icon,
+        "color": req.color,
+        "order": req.order
     }
     
     await db.subjects.insert_one(subject)
@@ -534,16 +584,7 @@ async def get_lesson(lesson_id: str):
 
 @api_router.post("/lessons")
 async def create_lesson(
-    title: str,
-    titleUz: str,
-    titleRu: str,
-    description: str,
-    subjectId: str,
-    content: str,
-    order: int,
-    xpReward: int = 10,
-    videoUrl: Optional[str] = None,
-    isPublished: bool = False,
+    req: CreateLessonRequest,
     current_user: dict = Depends(get_current_user)
 ):
     if current_user["role"] not in ["admin", "teacher"]:
@@ -551,16 +592,16 @@ async def create_lesson(
     
     lesson = {
         "id": str(uuid.uuid4()),
-        "title": title,
-        "titleUz": titleUz,
-        "titleRu": titleRu,
-        "description": description,
-        "subjectId": subjectId,
-        "videoUrl": videoUrl,
-        "content": content,
-        "order": order,
-        "xpReward": xpReward,
-        "isPublished": isPublished,
+        "title": req.title,
+        "titleUz": req.titleUz,
+        "titleRu": req.titleRu,
+        "description": req.description,
+        "subjectId": req.subjectId,
+        "videoUrl": req.videoUrl,
+        "content": req.content,
+        "order": req.order,
+        "xpReward": req.xpReward,
+        "isPublished": req.isPublished,
         "createdAt": datetime.now(timezone.utc).isoformat()
     }
     
@@ -580,21 +621,20 @@ async def get_user_progress(current_user: dict = Depends(get_current_user)):
 @api_router.post("/progress/{lesson_id}")
 async def update_progress(
     lesson_id: str,
-    progress: int,
-    score: Optional[int] = None,
+    req: UpdateProgressRequest,
     current_user: dict = Depends(get_current_user)
 ):
     lesson = await db.lessons.find_one({"id": lesson_id})
     if not lesson:
         raise HTTPException(status_code=404, detail="Lesson not found")
     
-    completed = progress >= 100
+    completed = req.progress >= 100
     update_data = {
         "userId": current_user["id"],
         "lessonId": lesson_id,
-        "progress": progress,
+        "progress": req.progress,
         "completed": completed,
-        "score": score,
+        "score": req.score,
         "updatedAt": datetime.now(timezone.utc).isoformat()
     }
     
@@ -700,11 +740,15 @@ async def root():
 # Include router
 app.include_router(api_router)
 
-# CORS
+# CORS - Allow frontend + localhost for dev
+cors_origins = [
+    os.environ.get("FRONTEND_URL", "http://localhost:3000"),
+    "http://localhost:3000"
+]
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=[os.environ.get("FRONTEND_URL", "http://localhost:3000")],
+    allow_origins=cors_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )
