@@ -19,6 +19,14 @@ import bcrypt
 import jwt
 import secrets
 import requests
+from openai import AsyncOpenAI
+
+# Kimi AI Client (OpenAI-compatible)
+kimi_client = AsyncOpenAI(
+    api_key=os.environ.get("KIMI_API_KEY", ""),
+    base_url=os.environ.get("KIMI_BASE_URL", "https://api.moonshot.ai/v1")
+)
+KIMI_MODEL = os.environ.get("KIMI_MODEL", "kimi-k2-0905-preview")
 
 # MongoDB connection
 mongo_url = os.environ['MONGO_URL']
@@ -121,6 +129,7 @@ async def get_current_user(request: Request) -> dict:
             raise HTTPException(status_code=401, detail="User not found")
         
         user["_id"] = str(user["_id"])
+        user["id"] = user["_id"]
         user.pop("password_hash", None)
         return user
     except jwt.ExpiredSignatureError:
@@ -334,6 +343,130 @@ async def seed_data():
         ]
         await db.islands.insert_many(islands)
         logging.info(f"Seeded {len(islands)} islands")
+    
+    # Seed achievements
+    ach_count = await db.achievements.count_documents({})
+    if ach_count == 0:
+        achievements = [
+            {"id": str(uuid.uuid4()), "name": "First Step", "nameUz": "Birinchi qadam", "nameRu": "Первый шаг",
+             "description": "Birinchi darsni tugating", "icon": "footprints", "rarity": "common", "xpReward": 50, "order": 1},
+            {"id": str(uuid.uuid4()), "name": "Week Warrior", "nameUz": "Haftalik jangchi", "nameRu": "Воин недели",
+             "description": "7 kun ketma-ket o'qing", "icon": "fire", "rarity": "rare", "xpReward": 100, "order": 2},
+            {"id": str(uuid.uuid4()), "name": "Quiz Master", "nameUz": "Test ustasi", "nameRu": "Мастер тестов",
+             "description": "10 ta testni a'lo bahoga toping", "icon": "trophy", "rarity": "epic", "xpReward": 200, "order": 3},
+            {"id": str(uuid.uuid4()), "name": "Knowledge Seeker", "nameUz": "Bilim izlovchi", "nameRu": "Искатель знаний",
+             "description": "1000 XP toplang", "icon": "star", "rarity": "rare", "xpReward": 150, "order": 4},
+            {"id": str(uuid.uuid4()), "name": "Island Explorer", "nameUz": "Orol kashfiyotchi", "nameRu": "Исследователь островов",
+             "description": "Barcha 3 orolni o'rganing", "icon": "compass", "rarity": "epic", "xpReward": 300, "order": 5},
+            {"id": str(uuid.uuid4()), "name": "Legendary Scholar", "nameUz": "Afsonaviy olim", "nameRu": "Легендарный учёный",
+             "description": "10000 XP toplang", "icon": "crown", "rarity": "legendary", "xpReward": 1000, "order": 6}
+        ]
+        await db.achievements.insert_many(achievements)
+        logging.info(f"Seeded {len(achievements)} achievements")
+    
+    # Seed rewards
+    rew_count = await db.rewards.count_documents({})
+    if rew_count == 0:
+        rewards = [
+            {"id": str(uuid.uuid4()), "name": "Bronze Badge", "nameUz": "Bronza nishon", "nameRu": "Бронзовый знак",
+             "type": "badge", "rarity": "common", "icon": "medal-bronze", "xpRequired": 100, "order": 1},
+            {"id": str(uuid.uuid4()), "name": "Silver Badge", "nameUz": "Kumush nishon", "nameRu": "Серебряный знак",
+             "type": "badge", "rarity": "rare", "icon": "medal-silver", "xpRequired": 500, "order": 2},
+            {"id": str(uuid.uuid4()), "name": "Gold Badge", "nameUz": "Oltin nishon", "nameRu": "Золотой знак",
+             "type": "badge", "rarity": "epic", "icon": "medal-gold", "xpRequired": 1500, "order": 3},
+            {"id": str(uuid.uuid4()), "name": "Diamond Badge", "nameUz": "Olmos nishon", "nameRu": "Алмазный знак",
+             "type": "badge", "rarity": "legendary", "icon": "diamond", "xpRequired": 5000, "order": 4},
+            {"id": str(uuid.uuid4()), "name": "Robot Avatar", "nameUz": "Robot avatar", "nameRu": "Аватар робот",
+             "type": "avatar", "rarity": "rare", "icon": "robot", "xpRequired": 800, "order": 5},
+            {"id": str(uuid.uuid4()), "name": "Wizard Title", "nameUz": "Sehrgar unvoni", "nameRu": "Титул волшебник",
+             "type": "title", "rarity": "epic", "icon": "wand", "xpRequired": 2000, "order": 6}
+        ]
+        await db.rewards.insert_many(rewards)
+        logging.info(f"Seeded {len(rewards)} rewards")
+    
+    # Seed sample subjects and lessons for Quvonch island
+    subj_count = await db.subjects.count_documents({})
+    if subj_count == 0:
+        all_islands = await db.islands.find({}).sort("order", 1).to_list(10)
+        if all_islands:
+            quvonch_id = all_islands[0]["id"]
+            kashfiyot_id = all_islands[1]["id"] if len(all_islands) > 1 else None
+            kelajak_id = all_islands[2]["id"] if len(all_islands) > 2 else None
+            
+            subjects = [
+                {"id": str(uuid.uuid4()), "name": "Matematika", "nameUz": "Matematika", "nameRu": "Математика",
+                 "islandId": quvonch_id, "icon": "calculator", "color": "#E879A8", "order": 1},
+                {"id": str(uuid.uuid4()), "name": "Ona tili", "nameUz": "Ona tili", "nameRu": "Родной язык",
+                 "islandId": quvonch_id, "icon": "book", "color": "#9B59F5", "order": 2},
+                {"id": str(uuid.uuid4()), "name": "Tabiatshunoslik", "nameUz": "Tabiatshunoslik", "nameRu": "Природоведение",
+                 "islandId": quvonch_id, "icon": "leaf", "color": "#22C55E", "order": 3}
+            ]
+            
+            if kashfiyot_id:
+                subjects.extend([
+                    {"id": str(uuid.uuid4()), "name": "Algebra", "nameUz": "Algebra", "nameRu": "Алгебра",
+                     "islandId": kashfiyot_id, "icon": "function", "color": "#5B8DEF", "order": 1},
+                    {"id": str(uuid.uuid4()), "name": "Fizika", "nameUz": "Fizika", "nameRu": "Физика",
+                     "islandId": kashfiyot_id, "icon": "atom", "color": "#9B59F5", "order": 2},
+                    {"id": str(uuid.uuid4()), "name": "Biologiya", "nameUz": "Biologiya", "nameRu": "Биология",
+                     "islandId": kashfiyot_id, "icon": "dna", "color": "#22C55E", "order": 3}
+                ])
+            
+            if kelajak_id:
+                subjects.extend([
+                    {"id": str(uuid.uuid4()), "name": "Programming", "nameUz": "Dasturlash", "nameRu": "Программирование",
+                     "islandId": kelajak_id, "icon": "code", "color": "#5B8DEF", "order": 1},
+                    {"id": str(uuid.uuid4()), "name": "AI Asoslari", "nameUz": "AI Asoslari", "nameRu": "Основы ИИ",
+                     "islandId": kelajak_id, "icon": "brain", "color": "#9B59F5", "order": 2}
+                ])
+            
+            await db.subjects.insert_many(subjects)
+            logging.info(f"Seeded {len(subjects)} subjects")
+            
+            # Sample lessons
+            math_subj = next((s for s in subjects if s["name"] == "Matematika"), None)
+            if math_subj:
+                lessons = [
+                    {"id": str(uuid.uuid4()), "title": "Sonlar bilan tanishuv", "titleUz": "Sonlar bilan tanishuv", "titleRu": "Знакомство с числами",
+                     "description": "1 dan 10 gacha sonlarni o'rganamiz",
+                     "subjectId": math_subj["id"],
+                     "videoUrl": "https://www.youtube.com/embed/D0Ajq682yrA",
+                     "content": "Bu darsda biz 1 dan 10 gacha bo'lgan sonlarni o'rganamiz. Sonlarni qanday yozish va o'qishni bilib olamiz.\n\n**1, 2, 3, 4, 5, 6, 7, 8, 9, 10**\n\nHar bir son o'zining nomi va belgisiga ega. Sonlarni hisoblash juda qiziqarli!",
+                     "order": 1, "xpReward": 50, "isPublished": True, "createdAt": datetime.now(timezone.utc).isoformat()},
+                    {"id": str(uuid.uuid4()), "title": "Qo'shish amali", "titleUz": "Qo'shish amali", "titleRu": "Операция сложения",
+                     "description": "Sonlarni qo'shishni o'rganamiz",
+                     "subjectId": math_subj["id"],
+                     "videoUrl": "https://www.youtube.com/embed/AuX7nPBqDts",
+                     "content": "Qo'shish - bu ikki yoki undan ortiq sonlarni birlashtirib, ularning yig'indisini topish.\n\n**Misol:** 2 + 3 = 5\n\nBu yerda 2 va 3 sonlari qo'shilib, 5 sonini hosil qiladi.",
+                     "order": 2, "xpReward": 60, "isPublished": True, "createdAt": datetime.now(timezone.utc).isoformat()}
+                ]
+                await db.lessons.insert_many(lessons)
+                logging.info(f"Seeded {len(lessons)} sample lessons")
+                
+                # Sample quiz for first lesson
+                quiz = {
+                    "id": str(uuid.uuid4()),
+                    "lessonId": lessons[0]["id"],
+                    "title": "Sonlar testi",
+                    "titleUz": "Sonlar testi",
+                    "titleRu": "Тест чисел",
+                    "questions": [
+                        {"id": str(uuid.uuid4()), "question": "1 dan keyin qaysi son keladi?",
+                         "options": ["0", "2", "3", "10"], "correctAnswer": 1,
+                         "explanation": "1 dan keyin 2 keladi"},
+                        {"id": str(uuid.uuid4()), "question": "Necha barmoq bor bir qo'lda?",
+                         "options": ["3", "4", "5", "6"], "correctAnswer": 2,
+                         "explanation": "Bir qo'lda 5 ta barmoq bor"},
+                        {"id": str(uuid.uuid4()), "question": "Eng katta son qaysi?",
+                         "options": ["3", "7", "5", "9"], "correctAnswer": 3,
+                         "explanation": "9 - 3, 7 va 5 dan katta"}
+                    ],
+                    "passingScore": 60,
+                    "xpReward": 30,
+                    "createdAt": datetime.now(timezone.utc).isoformat()
+                }
+                await db.quizzes.insert_one(quiz)
+                logging.info("Seeded sample quiz")
 
 # Startup event
 @app.on_event("startup")
@@ -736,6 +869,360 @@ async def download_file(
 @api_router.get("/")
 async def root():
     return {"message": "Hashimjon Akademiyasi API", "status": "running"}
+
+# ============ QUIZZES ============
+class QuizQuestion(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    question: str
+    options: List[str]
+    correctAnswer: int
+    explanation: Optional[str] = None
+
+class CreateQuizRequest(BaseModel):
+    lessonId: str
+    title: str
+    titleUz: str
+    titleRu: str
+    questions: List[QuizQuestion]
+    passingScore: int = 70
+    xpReward: int = 20
+
+class SubmitQuizRequest(BaseModel):
+    quizId: str
+    answers: List[int]
+
+@api_router.get("/quizzes")
+async def get_quizzes(lesson_id: Optional[str] = None):
+    query = {"lessonId": lesson_id} if lesson_id else {}
+    quizzes = await db.quizzes.find(query, {"_id": 0}).to_list(100)
+    return quizzes
+
+@api_router.get("/quizzes/{quiz_id}")
+async def get_quiz(quiz_id: str):
+    quiz = await db.quizzes.find_one({"id": quiz_id}, {"_id": 0})
+    if not quiz:
+        raise HTTPException(status_code=404, detail="Quiz not found")
+    return quiz
+
+@api_router.post("/quizzes")
+async def create_quiz(req: CreateQuizRequest, current_user: dict = Depends(get_current_user)):
+    if current_user["role"] not in ["admin", "teacher"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    quiz = {
+        "id": str(uuid.uuid4()),
+        "lessonId": req.lessonId,
+        "title": req.title,
+        "titleUz": req.titleUz,
+        "titleRu": req.titleRu,
+        "questions": [q.model_dump() for q in req.questions],
+        "passingScore": req.passingScore,
+        "xpReward": req.xpReward,
+        "createdAt": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.quizzes.insert_one(quiz)
+    quiz.pop("_id", None)
+    return quiz
+
+@api_router.post("/quizzes/submit")
+async def submit_quiz(req: SubmitQuizRequest, current_user: dict = Depends(get_current_user)):
+    quiz = await db.quizzes.find_one({"id": req.quizId})
+    if not quiz:
+        raise HTTPException(status_code=404, detail="Quiz not found")
+    
+    correct_count = 0
+    questions = quiz["questions"]
+    
+    for idx, answer in enumerate(req.answers):
+        if idx < len(questions) and questions[idx]["correctAnswer"] == answer:
+            correct_count += 1
+    
+    score = int((correct_count / len(questions)) * 100) if questions else 0
+    passed = score >= quiz.get("passingScore", 70)
+    
+    submission = {
+        "id": str(uuid.uuid4()),
+        "userId": current_user["id"],
+        "quizId": req.quizId,
+        "answers": req.answers,
+        "score": score,
+        "passed": passed,
+        "submittedAt": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.quiz_submissions.insert_one(submission)
+    
+    if passed:
+        xp_reward = quiz.get("xpReward", 20)
+        await db.users.update_one(
+            {"_id": ObjectId(current_user["id"])},
+            {"$inc": {"xp": xp_reward}}
+        )
+    
+    submission.pop("_id", None)
+    submission["correctCount"] = correct_count
+    submission["totalQuestions"] = len(questions)
+    return submission
+
+# ============ ASSIGNMENTS / HOMEWORK ============
+class CreateAssignmentRequest(BaseModel):
+    lessonId: str
+    title: str
+    description: str
+    dueDate: Optional[str] = None
+    maxScore: int = 100
+
+class SubmitAssignmentRequest(BaseModel):
+    assignmentId: str
+    content: str
+    fileId: Optional[str] = None
+
+@api_router.get("/assignments")
+async def get_assignments(lesson_id: Optional[str] = None):
+    query = {"lessonId": lesson_id} if lesson_id else {}
+    assignments = await db.assignments.find(query, {"_id": 0}).to_list(100)
+    return assignments
+
+@api_router.post("/assignments")
+async def create_assignment(req: CreateAssignmentRequest, current_user: dict = Depends(get_current_user)):
+    if current_user["role"] not in ["admin", "teacher"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    assignment = {
+        "id": str(uuid.uuid4()),
+        "lessonId": req.lessonId,
+        "title": req.title,
+        "description": req.description,
+        "dueDate": req.dueDate,
+        "maxScore": req.maxScore,
+        "createdBy": current_user["id"],
+        "createdAt": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.assignments.insert_one(assignment)
+    assignment.pop("_id", None)
+    return assignment
+
+@api_router.post("/assignments/submit")
+async def submit_assignment(req: SubmitAssignmentRequest, current_user: dict = Depends(get_current_user)):
+    assignment = await db.assignments.find_one({"id": req.assignmentId})
+    if not assignment:
+        raise HTTPException(status_code=404, detail="Assignment not found")
+    
+    submission = {
+        "id": str(uuid.uuid4()),
+        "userId": current_user["id"],
+        "assignmentId": req.assignmentId,
+        "content": req.content,
+        "fileId": req.fileId,
+        "score": None,
+        "feedback": None,
+        "status": "submitted",
+        "submittedAt": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.submissions.insert_one(submission)
+    submission.pop("_id", None)
+    return submission
+
+# ============ ACHIEVEMENTS ============
+@api_router.get("/achievements")
+async def get_achievements():
+    achievements = await db.achievements.find({}, {"_id": 0}).sort("order", 1).to_list(100)
+    return achievements
+
+@api_router.get("/user-achievements")
+async def get_user_achievements(current_user: dict = Depends(get_current_user)):
+    earned = await db.user_achievements.find(
+        {"userId": current_user["id"]}, {"_id": 0}
+    ).to_list(100)
+    return earned
+
+# ============ REWARDS ============
+@api_router.get("/rewards")
+async def get_rewards():
+    rewards = await db.rewards.find({}, {"_id": 0}).sort("order", 1).to_list(100)
+    return rewards
+
+@api_router.get("/user-rewards")
+async def get_user_rewards(current_user: dict = Depends(get_current_user)):
+    earned = await db.user_rewards.find(
+        {"userId": current_user["id"]}, {"_id": 0}
+    ).to_list(100)
+    return earned
+
+# ============ AI ENDPOINTS (Kimi K2) ============
+class AITutorRequest(BaseModel):
+    message: str
+    sessionId: Optional[str] = None
+    context: Optional[str] = None
+
+class AIQuizGenRequest(BaseModel):
+    topic: str
+    grade: int
+    numQuestions: int = 5
+    language: str = "uz"
+
+class AIHomeworkRequest(BaseModel):
+    question: str
+    subject: Optional[str] = None
+    grade: Optional[int] = None
+
+@api_router.post("/ai/tutor")
+async def ai_tutor(req: AITutorRequest, current_user: dict = Depends(get_current_user)):
+    """AI Tutor - O'qituvchi yordamchisi"""
+    session_id = req.sessionId or str(uuid.uuid4())
+    
+    system_msg = (
+        "Sen Hashimjon - o'zbek bolalar uchun do'st va aqlli o'qituvchisan. "
+        "Sen 6-18 yoshdagi bolalarga matematika, fizika, kimyo, biologiya, til va boshqa fanlarda yordam berasan. "
+        "Tushuntirishlaringni juda sodda, qiziqarli va do'stona qilib bering. "
+        "Misollar keltirib tushuntiring. Bolaning savoliga to'g'ridan-to'g'ri javob bermay, "
+        "ularni o'ylashga undash. O'zbek tilida javob bering."
+    )
+    
+    if req.context:
+        system_msg += f"\n\nDars konteksti: {req.context}"
+    
+    # Save user message
+    await db.ai_chat_history.insert_one({
+        "id": str(uuid.uuid4()),
+        "userId": current_user["id"],
+        "sessionId": session_id,
+        "role": "user",
+        "content": req.message,
+        "createdAt": datetime.now(timezone.utc).isoformat()
+    })
+    
+    try:
+        # Get chat history for context
+        history = await db.ai_chat_history.find(
+            {"userId": current_user["id"], "sessionId": session_id},
+            {"_id": 0}
+        ).sort("createdAt", 1).limit(20).to_list(20)
+        
+        messages = [{"role": "system", "content": system_msg}]
+        for msg in history[-10:]:
+            messages.append({"role": msg["role"], "content": msg["content"]})
+        
+        response = await kimi_client.chat.completions.create(
+            model=KIMI_MODEL,
+            messages=messages,
+            temperature=1
+        )
+        
+        ai_response = response.choices[0].message.content
+        
+        # Save AI response
+        await db.ai_chat_history.insert_one({
+            "id": str(uuid.uuid4()),
+            "userId": current_user["id"],
+            "sessionId": session_id,
+            "role": "assistant",
+            "content": ai_response,
+            "createdAt": datetime.now(timezone.utc).isoformat()
+        })
+        
+        return {
+            "sessionId": session_id,
+            "response": ai_response
+        }
+    except Exception as e:
+        logging.error(f"AI Tutor error: {e}")
+        raise HTTPException(status_code=500, detail=f"AI xatolik: {str(e)}")
+
+@api_router.get("/ai/chat-history/{session_id}")
+async def get_chat_history(session_id: str, current_user: dict = Depends(get_current_user)):
+    history = await db.ai_chat_history.find(
+        {"userId": current_user["id"], "sessionId": session_id},
+        {"_id": 0}
+    ).sort("createdAt", 1).to_list(100)
+    return history
+
+@api_router.post("/ai/generate-quiz")
+async def ai_generate_quiz(req: AIQuizGenRequest, current_user: dict = Depends(get_current_user)):
+    """AI Quiz Generator - Test yaratish"""
+    if current_user["role"] not in ["admin", "teacher"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    lang_name = "o'zbek" if req.language == "uz" else "rus"
+    
+    system_msg = (
+        f"Sen test yaratuvchi mutaxassissan. {req.grade}-sinf o'quvchilari uchun {lang_name} tilida "
+        f"'{req.topic}' mavzusida {req.numQuestions} ta variantli test savollarini tayyorla. "
+        "Har bir savolda 4 ta variant bo'lsin. Faqat JSON formatda javob ber:\n"
+        '{"questions": [{"question": "...", "options": ["A", "B", "C", "D"], "correctAnswer": 0, "explanation": "..."}]}'
+    )
+    
+    try:
+        response = await kimi_client.chat.completions.create(
+            model=KIMI_MODEL,
+            messages=[
+                {"role": "system", "content": system_msg},
+                {"role": "user", "content": f"Mavzu: {req.topic}, Sinf: {req.grade}, Savollar soni: {req.numQuestions}"}
+            ],
+            temperature=1,
+            response_format={"type": "json_object"}
+        )
+        
+        import json
+        result = json.loads(response.choices[0].message.content)
+        return result
+    except Exception as e:
+        logging.error(f"AI Quiz Gen error: {e}")
+        raise HTTPException(status_code=500, detail=f"Test yaratishda xatolik: {str(e)}")
+
+@api_router.post("/ai/homework-helper")
+async def ai_homework_helper(req: AIHomeworkRequest, current_user: dict = Depends(get_current_user)):
+    """AI Homework Helper - Uy vazifasi yordamchisi"""
+    system_msg = (
+        "Sen uy vazifalari uchun yordamchi o'qituvchisan. "
+        "O'zbek bolaga uy vazifasini hal qilishda yordam ber. "
+        "Javobni to'g'ridan-to'g'ri bermay, bola o'zi tushunishi uchun bosqichma-bosqich tushuntir. "
+        "Misollar bilan tushuntir. O'zbek tilida javob ber."
+    )
+    
+    if req.subject:
+        system_msg += f"\nFan: {req.subject}"
+    if req.grade:
+        system_msg += f"\nSinf: {req.grade}"
+    
+    try:
+        response = await kimi_client.chat.completions.create(
+            model=KIMI_MODEL,
+            messages=[
+                {"role": "system", "content": system_msg},
+                {"role": "user", "content": req.question}
+            ],
+            temperature=1
+        )
+        
+        return {"response": response.choices[0].message.content}
+    except Exception as e:
+        logging.error(f"AI Homework error: {e}")
+        raise HTTPException(status_code=500, detail=f"AI xatolik: {str(e)}")
+
+# ============ ADMIN ENDPOINTS ============
+@api_router.get("/admin/users")
+async def admin_list_users(current_user: dict = Depends(get_current_user)):
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    users = await db.users.find({}, {"password_hash": 0}).to_list(1000)
+    for u in users:
+        u["id"] = str(u.pop("_id"))
+    return users
+
+@api_router.delete("/admin/users/{user_id}")
+async def admin_delete_user(user_id: str, current_user: dict = Depends(get_current_user)):
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    result = await db.users.delete_one({"_id": ObjectId(user_id)})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {"message": "User deleted"}
 
 # Include router
 app.include_router(api_router)

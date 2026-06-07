@@ -18,6 +18,7 @@ import {
   Globe
 } from '@phosphor-icons/react';
 import { toast } from 'sonner';
+import AITutorChat from '@/components/AITutorChat';
 
 const DashboardLayout = () => {
   const { user, logout } = useAuth();
@@ -140,6 +141,9 @@ const DashboardLayout = () => {
       <main className="flex-1 overflow-auto" data-testid="dashboard-main">
         <Outlet />
       </main>
+
+      {/* AI Tutor Floating Chat */}
+      <AITutorChat />
     </div>
   );
 };

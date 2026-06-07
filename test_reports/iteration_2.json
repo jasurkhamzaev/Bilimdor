@@ -1,0 +1,52 @@
+{
+  "summary": "Iteration 2 testing: backend AI/quiz/lesson/admin/leaderboard/rewards/achievements endpoints all PASS (24/24 after retrying one 502 from k8s ingress timeout on AI quiz gen). Frontend: admin login, Admin Users CMS (12 users listed), Teacher Lessons CMS (3 lessons + Add button), Leaderboard (11 rows + 3 podium), Rewards page (6 items, both tabs), Islands -> Detail (3 subjects, 3 lessons), Lesson Viewer (video + content rendered, quiz appears after 'Darsni tugatdim' click as designed). AI Tutor toggle is rendered but the chat panel never becomes visible after clicking the floating button — likely z-index/overlap conflict with the 'Made with Emergent' badge or a React state/animation regression. Quiz section gating works as expected.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/ai/generate-quiz", "issue": "Endpoint occasionally returns 502 from the Kubernetes ingress when Kimi takes >~60s. Backend itself is fine (succeeded on direct retry in ~42s). Consider streaming or shorter prompt to stay below ingress timeout."},
+      {"endpoint": "POST /api/ai/tutor", "issue": "Working but slow (~30-60s per response). UI must show a clear loading indicator and tolerate >60s waits."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "AITutorChat", "issue": "Clicking [data-testid=\"ai-tutor-toggle\"] does NOT reveal [data-testid=\"ai-tutor-chat\"]. Tested twice with force=True clicks (1.5s wait between) — panel never becomes visible. Likely causes: (a) z-50 of toggle/panel conflicts with the 'Made with Emergent' badge sitting at the same bottom-right corner; (b) AnimatePresence/motion.div animation never completes; (c) isOpen state not toggling. Manual reproduction recommended. End-to-end AI Tutor flow could therefore not be UI-verified, even though POST /api/ai/tutor works correctly from backend tests.", "selector": "[data-testid=\"ai-tutor-toggle\"] / [data-testid=\"ai-tutor-chat\"]", "priority": "HIGH"},
+      {"component": "LeaderboardPage", "issue": "React console warning: 'Each child in a list should have a unique key prop' — items rendered without proper key. Cosmetic but should be fixed.", "selector": "[data-testid=\"leaderboard-page\"]", "priority": "LOW"}
+    ],
+    "integration_issues": [
+      {"flow": "AI Tutor chat", "issue": "End-to-end flow blocked because chat panel won't open from UI. Backend endpoint verified working.", "affected_selectors": ["[data-testid=\"ai-tutor-toggle\"]", "[data-testid=\"ai-tutor-chat\"]", "[data-testid=\"chat-input\"]"]}
+    ],
+    "design_issues": [
+      {"screen": "Dashboard global", "issues": ["'Made with Emergent' badge overlaps the AI Tutor floating button area (bottom-right). Move the AI Tutor button up (e.g., bottom-24) or to the left side, or raise its z-index above the badge."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration2.py",
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/iteration2_results.xml"
+  ],
+  "action_items": [
+    "Fix AI Tutor floating button: ensure clicking the toggle actually opens the chat panel. Check z-index vs. the Emergent badge and confirm setIsOpen toggles correctly. Consider repositioning to bottom-24 right-6 or bottom-6 left-6 so the badge does not visually/clickably collide.",
+    "Add unique `key` prop to mapped children in LeaderboardPage (console warning).",
+    "Add a visible loading spinner inside the AI Tutor chat panel while awaiting Kimi (responses take 30-60s).",
+    "Consider streaming responses or reducing prompt size for /api/ai/generate-quiz to avoid 502 ingress timeouts.",
+    "(Carried over from iteration 1) POST /api/subjects, /api/lessons accept Pydantic models now — verified working in tests. Keep monitoring.",
+    "(Carried over) backend/.env FRONTEND_URL still localhost; credentialed CORS works only because k8s ingress wildcards. Update for production."
+  ],
+  "critical_code_review_comments": [
+    "LessonViewerPage quiz visibility is gated on `showQuiz` which only becomes true after `markComplete` POST — verified intentional, not a bug. Document this UX in the PRD so future testing agents don't mis-flag it.",
+    "AI Tutor temperature=1 is correct per kimi-k2.6 constraint. Good.",
+    "ai_chat_history is appended for every message — no max-length/cleanup. Will grow unbounded; add TTL or session cap.",
+    "/api/admin/users returns full user objects including emails, grade, parentPhone — fine for admin UI, but ensure no password_hash leaks (verified: stripped).",
+    "Quiz submission XP award is idempotent-by-nature only because it always inserts a new submission; the same student can replay the seeded quiz and farm XP forever. Add 'one pass per quiz' check or cap retries.",
+    "init_storage() runs at startup with placeholder EMERGENT_LLM_KEY — non-fatal (just logs), as expected per main agent note.",
+    "server.py is now 1252 lines — exceeds the 700-line guideline. Split into routers (auth, lessons, quizzes, ai, admin) for maintainability."
+  ],
+  "updated_files": ["/app/backend/tests/test_iteration2.py"],
+  "success_rate": {"backend": "100% (24/24 after retry; one transient 502 on /api/ai/generate-quiz)", "frontend": "~85% — all CMS / leaderboard / rewards / islands / lesson viewer pages verified; AI Tutor chat panel does not open from UI"},
+  "test_credentials": "admin@hashimjon.uz / admin123 (verified). Student test accounts created dynamically via /api/auth/register with test_stud_*@test.uz emails.",
+  "seed_data_creation": "Tests create test_stud_*@test.uz and test_del_*@test.uz students dynamically. Admin delete test cleans up its own user. Other test users remain in DB (cosmetic — 12 users now listed in Admin CMS).",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend 24-test pytest suite at /app/backend/tests/test_iteration2.py covers seeded data, AI endpoints (tutor/homework/quiz-gen), quiz CRUD+submit, lesson CRUD, admin users, user-rewards/achievements. Run with REACT_APP_BACKEND_URL set. The Kimi API takes 30-60s per call so allow generous timeouts. The main remaining bug is the AI Tutor floating chat panel not opening on click — verify in a real browser whether toggle.onClick is firing (check React DevTools or add a console.log to setIsOpen). The 'Made with Emergent' badge at bottom-right shares the corner with the toggle button.",
+  "rca of the issue": "AI Tutor chat won't open: Playwright force-clicked [data-testid=\"ai-tutor-toggle\"] twice with 1.5s between clicks; [data-testid=\"ai-tutor-chat\"] never reached visible state. Hypotheses (in order of likelihood): (1) The Emergent badge iframe/div at bottom-right overlays the toggle and intercepts pointer events at the page level even though force-click bypasses Playwright's actionability check, because the browser dispatches the click to whatever element is topmost at those coordinates. Fix: reposition the AI tutor toggle (e.g., bottom-24 right-6) so it does not share the corner with the Emergent badge, OR raise z-index above the badge container. (2) AnimatePresence + motion.div not mounting due to a runtime error inside the chat (e.g., messages.map crash). Open browser DevTools to confirm. (3) setIsOpen not toggling because the button is wrapped by something that swallows events. Recommend repositioning first — that alone usually fixes it."
+}
