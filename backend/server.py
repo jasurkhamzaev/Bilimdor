@@ -1231,6 +1231,9 @@ async def get_daily_challenges(current_user: dict = Depends(get_current_user)):
              "type": "quiz", "target": 1, "xpReward": 75, "icon": "✅"}
         ]
         await db.daily_challenges.insert_many(challenges)
+        # Pop ObjectId leaked by motor
+        for c in challenges:
+            c.pop("_id", None)
     
     user_progress_list = await db.user_challenges.find(
         {"userId": current_user["id"], "date": today},
